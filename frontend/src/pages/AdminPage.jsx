@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, AlertTriangle, CheckCircle } from "lucide-react";
 import { useWeb3 } from "../context/Web3Context";
@@ -30,6 +30,7 @@ const AdminPage = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [mintedCards, setMintedCards] = useState([]);
+  const [isLoadingCards, setIsLoadingCards] = useState(false);
 
   // Pokemon types for selection
   const pokemonTypes = [
@@ -44,6 +45,48 @@ const AdminPage = () => {
     "Dark",
     "Fairy",
   ];
+
+  // Fetch user's minted Pokemon cards
+  const fetchMintedCards = async () => {
+    if (!pokemonCardContract || !account) return;
+
+    setIsLoadingCards(true);
+    try {
+      // Use the getAllPokemonByOwner function from the contract
+      const [tokenIds, pokemons] =
+        await pokemonCardContract.getAllPokemonByOwner(account);
+
+      // Format the data
+      const formattedCards = tokenIds.map((id, index) => {
+        const pokemon = pokemons[index];
+        return {
+          id: id.toString(),
+          name: pokemon.name,
+          generation: pokemon.generation,
+          type: pokemon.pokemonType,
+          power: pokemon.power,
+          rarity: pokemon.rarity,
+          isShiny: pokemon.isShiny,
+          image: `/api/placeholder/300/400`, // Placeholder for demo
+          timestamp: new Date().toISOString(), // We don't have timestamp in contract, so use current time
+        };
+      });
+
+      setMintedCards(formattedCards);
+    } catch (err) {
+      console.error("Error fetching minted Pokemon cards:", err);
+      setErrorMessage("Failed to fetch your Pokemon cards.");
+    } finally {
+      setIsLoadingCards(false);
+    }
+  };
+
+  // Fetch cards when component mounts or account changes
+  useEffect(() => {
+    if (account && pokemonCardContract) {
+      fetchMintedCards();
+    }
+  }, [account, pokemonCardContract]);
 
   // Handle form change
   const handleChange = (e) => {
@@ -96,13 +139,17 @@ const AdminPage = () => {
         throw new Error(result.error || "Failed to mint Pokemon card");
       }
 
-      // For demo purposes, we'll use a simple ID (in a real app, we'd extract from transaction)
-      const tokenId = Date.now().toString();
+      // Extract token ID from the transaction receipt if possible
+      // For demo, we'll use a simple ID or parse from the transaction
+      const tokenId = result.transaction?.hash
+        ? `${result.transaction.hash.substring(0, 6)}`
+        : Date.now().toString();
 
       // Add to minted cards list
       const newCard = {
         ...formData,
         id: tokenId,
+        type: formData.pokemonType,
         timestamp: new Date().toISOString(),
       };
 
@@ -110,6 +157,9 @@ const AdminPage = () => {
       setSuccessMessage(
         `Successfully minted ${formData.name} (Token ID: ${tokenId})`
       );
+
+      // Fetch updated list of cards
+      fetchMintedCards();
 
       // Reset form for next mint
       setFormData({
@@ -395,13 +445,26 @@ const AdminPage = () => {
 
             {/* Recently Minted Cards */}
             <div>
-              <h2 className="text-lg font-medium text-gray-900 mb-4">
-                Recently Minted Cards
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-medium text-gray-900">
+                  Your Pokemon Cards
+                </h2>
+                <button
+                  onClick={fetchMintedCards}
+                  disabled={isLoadingCards}
+                  className="text-sm text-indigo-600 hover:text-indigo-800"
+                >
+                  {isLoadingCards ? "Loading..." : "Refresh"}
+                </button>
+              </div>
 
-              {mintedCards.length === 0 ? (
+              {isLoadingCards ? (
+                <div className="flex justify-center items-center h-40">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+                </div>
+              ) : mintedCards.length === 0 ? (
                 <div className="bg-gray-50 rounded-md p-4 text-center">
-                  <p className="text-gray-500">No cards minted yet</p>
+                  <p className="text-gray-500">No cards found</p>
                 </div>
               ) : (
                 <div className="space-y-4 max-h-[500px] overflow-y-auto">
@@ -428,9 +491,7 @@ const AdminPage = () => {
                       <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
                         <div>
                           <span className="text-gray-500">Type:</span>{" "}
-                          <span className="text-gray-900">
-                            {card.pokemonType}
-                          </span>
+                          <span className="text-gray-900">{card.type}</span>
                         </div>
                         <div>
                           <span className="text-gray-500">Gen:</span>{" "}
@@ -449,9 +510,11 @@ const AdminPage = () => {
                           </span>
                         </div>
                       </div>
-                      <div className="mt-2 text-xs text-gray-400">
-                        Minted: {new Date(card.timestamp).toLocaleString()}
-                      </div>
+                      {card.timestamp && (
+                        <div className="mt-2 text-xs text-gray-400">
+                          Minted: {new Date(card.timestamp).toLocaleString()}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
