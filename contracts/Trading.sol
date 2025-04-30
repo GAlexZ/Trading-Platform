@@ -6,14 +6,12 @@ import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title PokemonTrading
  * @dev Contract for trading Pokemon cards with fixed price, English auctions, and Dutch auctions
  */
 contract Trading is IERC721Receiver, ReentrancyGuard, Pausable, AccessControl {
-    using Math for uint256;
 
     // Role definitions
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
@@ -56,7 +54,7 @@ contract Trading is IERC721Receiver, ReentrancyGuard, Pausable, AccessControl {
     uint256 public constant COMMIT_REVEAL_WINDOW = 10 minutes;
 
     // Platform fee percentage (in basis points, 1% = 100)
-    uint256 public platformFeePercentage = 250; // 2.5%
+    uint256 public platformFeePercentage = 100; 
     
     // Fee recipient address
     address public feeRecipient;

@@ -10,6 +10,8 @@
 
 # Security
 
+# Fast track info
+
 ```shell
 npx hardhat help
 npx hardhat test
