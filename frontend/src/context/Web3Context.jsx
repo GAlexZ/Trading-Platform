@@ -4,8 +4,9 @@ import TradingABI from "../contracts/Trading.json";
 import PokemonCardABI from "../contracts/PokemonCard.json";
 
 // Contract addresses (would come from environment variables in a real app)
-const TRADING_CONTRACT_ADDRESS = "0x123..."; // Replace with actual address
-const POKEMON_CARD_CONTRACT_ADDRESS = "0x456..."; // Replace with actual address
+const TRADING_CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+const POKEMON_CARD_CONTRACT_ADDRESS =
+  "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
 // Create context
 const Web3Context = createContext();
@@ -181,6 +182,41 @@ export const Web3Provider = ({ children }) => {
       };
     }
   }, [provider, account]);
+
+  // Mint Pokemon functionality
+  const mintPokemon = async (
+    name,
+    generation,
+    pokemonType,
+    power,
+    rarity,
+    isShiny,
+    ipfsMetadataURI
+  ) => {
+    if (!signer || !pokemonCardContract)
+      return { success: false, error: "Wallet not connected" };
+
+    try {
+      // Call the mintPokemon function
+      const tx = await pokemonCardContract.mintPokemon(
+        account, // mint to the connected account
+        name,
+        generation,
+        pokemonType,
+        power,
+        rarity,
+        isShiny,
+        ipfsMetadataURI
+      );
+
+      await tx.wait();
+
+      return { success: true, transaction: tx };
+    } catch (error) {
+      console.error("Error minting Pokemon:", error);
+      return { success: false, error: error.message };
+    }
+  };
 
   // Create trading functionality
   const createFixedPriceListing = async (
@@ -382,6 +418,7 @@ export const Web3Provider = ({ children }) => {
     pokemonCardContract,
     connectWallet,
     disconnectWallet,
+    mintPokemon, // Added the mintPokemon function
     createFixedPriceListing,
     createEnglishAuction,
     createDutchAuction,

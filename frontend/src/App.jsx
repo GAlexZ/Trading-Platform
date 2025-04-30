@@ -11,6 +11,7 @@ import HomePage from "./pages/HomePage";
 import MarketplacePage from "./pages/MarketplacePage";
 import NFTDetailView from "./pages/NFTDetailView";
 import CreateListingPage from "./pages/CreateListingPage";
+import AdminPage from "./pages/AdminPage"; // Import the new AdminPage
 import { Web3Provider } from "./context/Web3Context";
 import { ListingsProvider } from "./context/ListingsContext";
 import "./index.css";
@@ -52,6 +53,8 @@ const App = () => {
                   element={<NFTDetailView />}
                 />
                 <Route path="/create-listing" element={<CreateListingPage />} />
+                <Route path="/admin" element={<AdminPage />} />{" "}
+                {/* Add route for AdminPage */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </main>
