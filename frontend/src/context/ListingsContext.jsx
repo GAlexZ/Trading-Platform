@@ -8,7 +8,8 @@ const ListingsContext = createContext();
 export const useListings = () => useContext(ListingsContext);
 
 export const ListingsProvider = ({ children }) => {
-  const { tradingContract, pokemonCardContract, account } = useWeb3();
+  const { tradingContract, pokemonCardContract, fetchMyPokemonCards, account } =
+    useWeb3();
 
   const [listings, setListings] = useState([]);
   const [userListings, setUserListings] = useState([]);
@@ -189,44 +190,17 @@ export const ListingsProvider = ({ children }) => {
   // Fetch user's NFTs
   const fetchUserNFTs = async () => {
     if (!pokemonCardContract || !account) return;
-
     try {
-      const mockNFTs = [
-        {
-          id: 101,
-          name: "Pikachu",
-          generation: 1,
-          type: "Electric",
-          power: 120,
-          rarity: 3,
-          isShiny: true,
-          image: "/api/placeholder/300/400",
-        },
-        {
-          id: 102,
-          name: "Mew",
-          generation: 1,
-          type: "Psychic",
-          power: 170,
-          rarity: 5,
-          isShiny: false,
-          image: "/api/placeholder/300/400",
-        },
-        {
-          id: 103,
-          name: "Dragonite",
-          generation: 1,
-          type: "Dragon",
-          power: 160,
-          rarity: 4,
-          isShiny: false,
-          image: "/api/placeholder/300/400",
-        },
-      ];
-
-      setUserNFTs(mockNFTs);
+      const { success, cards, error } = await fetchMyPokemonCards();
+      if (success) {
+        setUserNFTs(cards);
+      } else {
+        console.error("Error fetching user NFTs:", error);
+        setUserNFTs([]);
+      }
     } catch (err) {
       console.error("Error fetching user NFTs:", err);
+      setUserNFTs([]);
     }
   };
 

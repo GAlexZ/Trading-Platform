@@ -3,10 +3,13 @@ import { ethers } from "ethers";
 import TradingABI from "../contracts/Trading.json";
 import PokemonCardABI from "../contracts/PokemonCard.json";
 
+const resolveIPFS = (uri) =>
+  uri.startsWith("ipfs://") ? `https://ipfs.io/ipfs/${uri.slice(7)}` : uri;
+
 // Contract addresses (would come from environment variables in a real app)
-const TRADING_CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+const TRADING_CONTRACT_ADDRESS = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
 const POKEMON_CARD_CONTRACT_ADDRESS =
-  "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+  "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
 
 // Create context
 const Web3Context = createContext();
@@ -225,21 +228,41 @@ export const Web3Provider = ({ children }) => {
     price,
     duration
   ) => {
-    if (!signer || !tradingContract)
+    if (!signer || !tradingContract || !pokemonCardContract)
       return { success: false, error: "Wallet not connected" };
 
     try {
-      // Convert price to wei
+      // 0) Make sure the marketplace is allowed to transfer your NFT
+      // Option A: per‐token approval
+      // const approvalTx = await pokemonCardContract.approve(
+      //   TRADING_CONTRACT_ADDRESS,
+      //   tokenId
+      // );
+      // await approvalTx.wait();
+
+      // Option B: one-time blanket approval
+      const isApprovedForAll = await pokemonCardContract.isApprovedForAll(
+        account,
+        TRADING_CONTRACT_ADDRESS
+      );
+      if (!isApprovedForAll) {
+        const approvalTx = await pokemonCardContract.setApprovalForAll(
+          TRADING_CONTRACT_ADDRESS,
+          true
+        );
+        await approvalTx.wait();
+      }
+
+      // 1) Convert price to wei
       const priceInWei = ethers.utils.parseEther(price.toString());
 
-      // Create listing
+      // 2) Create the listing
       const tx = await tradingContract.createFixedPriceListing(
         nftContractAddress,
         tokenId,
         priceInWei,
         duration
       );
-
       await tx.wait();
 
       return { success: true, transaction: tx };
@@ -407,6 +430,69 @@ export const Web3Provider = ({ children }) => {
     }
   };
 
+  // Fetch all Pokemon token IDs owned by the connected account, then pull their metadata + real IPFS image
+  const fetchMyPokemonCards = async () => {
+    if (!signer || !pokemonCardContract || !account) {
+      return { success: false, error: "Wallet not connected" };
+    }
+    try {
+      // 1) How many tokens does the user have?
+      const balanceBN = await pokemonCardContract.callStatic.balanceOf(account);
+      const balance = Number(balanceBN);
+
+      // 2) Pull each tokenId as a string
+      const tokenIds = await Promise.all(
+        Array.from({ length: balance }, (_, i) =>
+          pokemonCardContract.callStatic
+            .tokenOfOwnerByIndex(account, i)
+            .then((bn) => bn.toString())
+        )
+      );
+
+      if (tokenIds.length === 0) {
+        return { success: true, cards: [] };
+      }
+
+      // 3) Get on‐chain stats in bulk
+      const onChainBatch =
+        await pokemonCardContract.callStatic.batchGetPokemonDetails(tokenIds);
+
+      // 4) Fetch each tokenURI JSON from IPFS
+      const tokenURIs = await Promise.all(
+        tokenIds.map((id) => pokemonCardContract.callStatic.tokenURI(id))
+      );
+      const metadatas = await Promise.all(
+        tokenURIs.map(async (rawUri) => {
+          const url = resolveIPFS(rawUri);
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`Failed to fetch metadata at ${url}`);
+          return res.json();
+        })
+      );
+
+      // 5) Merge stats + real IPFS image into your cards array
+      const cards = tokenIds.map((id, idx) => {
+        const chain = onChainBatch[idx];
+        const meta = metadatas[idx];
+        return {
+          id,
+          name: meta.name,
+          generation: Number(chain.generation),
+          type: chain.pokemonType,
+          power: Number(chain.power),
+          rarity: Number(chain.rarity),
+          isShiny: chain.isShiny,
+          image: resolveIPFS(meta.image),
+        };
+      });
+
+      return { success: true, cards };
+    } catch (err) {
+      console.error("Error fetching my Pokemon cards:", err);
+      return { success: false, error: err.message };
+    }
+  };
+
   // Context value
   const value = {
     provider,
@@ -418,7 +504,8 @@ export const Web3Provider = ({ children }) => {
     pokemonCardContract,
     connectWallet,
     disconnectWallet,
-    mintPokemon, // Added the mintPokemon function
+    mintPokemon,
+    fetchMyPokemonCards,
     createFixedPriceListing,
     createEnglishAuction,
     createDutchAuction,

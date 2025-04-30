@@ -18,7 +18,7 @@ contract Trading is IERC721Receiver, ReentrancyGuard, Pausable, AccessControl {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     // Listing counter
-    uint256 private _nextListingId;
+    uint256 public _nextListingId;
 
     // Sale types
     enum SaleType { FixedPrice, EnglishAuction, DutchAuction }
