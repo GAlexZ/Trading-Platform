@@ -1,4 +1,4 @@
-require("@nomicfoundation/hardhat-toolbox"); // <-- REQUIRED to use hre.ethers
+require("@nomicfoundation/hardhat-toolbox");
 
 module.exports = {
   solidity: {

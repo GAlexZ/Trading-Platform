@@ -31,23 +31,84 @@ export const ListingsProvider = ({ children }) => {
     3: "Expired",
   };
 
-  // Fetch all active listings
+  // Enhanced fetchListings function for ListingsContext.jsx
   const fetchListings = async () => {
-    if (!tradingContract) return;
+    if (!tradingContract || !pokemonCardContract) return;
 
     setIsLoading(true);
     setError(null);
 
     try {
-      // In a real implementation, you would use events or a backend indexer
-      // For simplicity, we'll use a counter-based approach with mock data
-
+      // Get next listing ID (total number of listings created)
       const nextListingId = await tradingContract.callStatic._nextListingId();
       const listingsData = [];
 
+      // For efficient batch processing, collect IDs of active listings first
+      const activeListingIds = [];
+      const tokenIds = [];
+
+      // First pass: get listing status and collect active listings
       for (let i = 0; i < nextListingId; i++) {
         try {
           const listing = await tradingContract.callStatic.getListingDetails(i);
+
+          // Skip non-active listings
+          if (statusMap[listing[10]] !== "Active") continue;
+
+          activeListingIds.push(i);
+
+          // If this is a Pokemon card NFT, add its token ID to our batch request list
+          if (
+            listing[1].toLowerCase() ===
+            pokemonCardContract?.address?.toLowerCase()
+          ) {
+            tokenIds.push(listing[2].toString());
+          }
+        } catch (err) {
+          console.warn(`Failed to get listing ${i}:`, err);
+        }
+      }
+
+      // If no active listings, return early
+      if (activeListingIds.length === 0) {
+        setListings([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Batch get Pokemon metadata for all token IDs at once
+      let pokemonDetailsMap = {};
+
+      if (tokenIds.length > 0) {
+        try {
+          const pokemonBatch =
+            await pokemonCardContract.callStatic.batchGetPokemonDetails(
+              tokenIds
+            );
+
+          // Create a map of token ID to Pokemon details
+          tokenIds.forEach((id, index) => {
+            pokemonDetailsMap[id] = {
+              name: pokemonBatch[index].name,
+              generation: pokemonBatch[index].generation,
+              type: pokemonBatch[index].pokemonType,
+              power: pokemonBatch[index].power,
+              rarity: pokemonBatch[index].rarity,
+              isShiny: pokemonBatch[index].isShiny,
+              image: `/api/placeholder/300/400`, // Placeholder for demo
+            };
+          });
+        } catch (err) {
+          console.warn("Failed to batch get Pokemon details:", err);
+        }
+      }
+
+      // Second pass: process active listings with Pokemon metadata
+      for (const listingId of activeListingIds) {
+        try {
+          const listing = await tradingContract.callStatic.getListingDetails(
+            listingId
+          );
 
           // Destructure listing details
           const [
@@ -65,58 +126,26 @@ export const ListingsProvider = ({ children }) => {
             currentPrice,
           ] = listing;
 
-          // Skip non-active listings
-          if (statusMap[status] !== "Active") continue;
+          // Get the token ID as string
+          const tokenIdStr = tokenId.toString();
 
-          // Get NFT metadata from PokemonCard contract
-          let metadata = {};
-
-          try {
-            if (
-              nftContract.toLowerCase() ===
-              pokemonCardContract?.address?.toLowerCase()
-            ) {
-              const pokemonData =
-                await pokemonCardContract.callStatic.getPokemonDetails(tokenId);
-
-              metadata = {
-                name: pokemonData.name,
-                generation: pokemonData.generation,
-                type: pokemonData.pokemonType,
-                power: pokemonData.power,
-                rarity: pokemonData.rarity,
-                isShiny: pokemonData.isShiny,
-              };
-
-              // Get token URI for image
-              //const tokenURI = await pokemonCardContract.callStatic.tokenURI(
-              //tokenId
-              //);
-
-              // In a real app, you would fetch this data from IPFS
-              // For demo, we'll use a placeholder
-              metadata.image = `/api/placeholder/300/400`;
-            }
-          } catch (err) {
-            console.warn(`Failed to get metadata for listing ${i}:`, err);
-            // Use placeholder metadata
-            metadata = {
-              name: `Pokemon #${tokenId}`,
-              generation: 1,
-              type: "Unknown",
-              power: 100,
-              rarity: 3,
-              isShiny: false,
-              image: `/api/placeholder/300/400`,
-            };
-          }
+          // Get metadata either from our batch result or use a placeholder
+          const metadata = pokemonDetailsMap[tokenIdStr] || {
+            name: `Pokemon #${tokenIdStr}`,
+            generation: 1,
+            type: "Unknown",
+            power: 100,
+            rarity: 3,
+            isShiny: false,
+            image: `/api/placeholder/300/400`,
+          };
 
           // Format the listing data
           listingsData.push({
-            id: i,
+            id: listingId,
             seller,
             nftContract,
-            tokenId: tokenId.toString(),
+            tokenId: tokenIdStr,
             price: ethers.utils.formatEther(price),
             endPrice: ethers.utils.formatEther(endPrice),
             startTime: new Date(startTime.toNumber() * 1000),
@@ -129,7 +158,7 @@ export const ListingsProvider = ({ children }) => {
             ...metadata,
           });
         } catch (err) {
-          console.warn(`Failed to get listing ${i}:`, err);
+          console.warn(`Failed to process listing ${listingId}:`, err);
         }
       }
 
@@ -147,7 +176,6 @@ export const ListingsProvider = ({ children }) => {
     if (!tradingContract || !account) return;
 
     try {
-      // Filter listings by seller == current account
       const userListingsData = listings.filter(
         (listing) => listing.seller.toLowerCase() === account.toLowerCase()
       );
@@ -163,10 +191,6 @@ export const ListingsProvider = ({ children }) => {
     if (!pokemonCardContract || !account) return;
 
     try {
-      // In a real implementation, you would use events or a backend indexer
-      // For this demo, we'll use mock data first, then enhance with real data
-
-      // Mock NFT data
       const mockNFTs = [
         {
           id: 101,
@@ -201,30 +225,6 @@ export const ListingsProvider = ({ children }) => {
       ];
 
       setUserNFTs(mockNFTs);
-
-      // In a real implementation, you would scan for the user's NFTs like this:
-      // Get the total number of NFTs owned by the user
-      // const balance = await pokemonCardContract.balanceOf(account);
-      // const nfts = [];
-
-      // for (let i = 0; i < balance; i++) {
-      //   const tokenId = await pokemonCardContract.tokenOfOwnerByIndex(account, i);
-      //   const pokemonData = await pokemonCardContract.getPokemonDetails(tokenId);
-      //   const tokenURI = await pokemonCardContract.tokenURI(tokenId);
-      //
-      //   nfts.push({
-      //     id: tokenId.toString(),
-      //     name: pokemonData.name,
-      //     generation: pokemonData.generation,
-      //     type: pokemonData.pokemonType,
-      //     power: pokemonData.power,
-      //     rarity: pokemonData.rarity,
-      //     isShiny: pokemonData.isShiny,
-      //     image: tokenURI // In a real app, you would parse this from IPFS
-      //   });
-      // }
-      //
-      // setUserNFTs(nfts);
     } catch (err) {
       console.error("Error fetching user NFTs:", err);
     }
@@ -257,35 +257,29 @@ export const ListingsProvider = ({ children }) => {
         price,
         saleType,
       });
-      // Refresh listings
       fetchListings();
     };
 
     const listingSoldHandler = (listingId, buyer, price) => {
       console.log("Listing sold:", { listingId, buyer, price });
-      // Refresh listings
       fetchListings();
     };
 
     const listingCancelledHandler = (listingId) => {
       console.log("Listing cancelled:", { listingId });
-      // Refresh listings
       fetchListings();
     };
 
     const bidPlacedHandler = (listingId, bidder, amount) => {
       console.log("Bid placed:", { listingId, bidder, amount });
-      // Refresh listings
       fetchListings();
     };
 
-    // Set up event listeners
     tradingContract.on("ListingCreated", listingCreatedHandler);
     tradingContract.on("ListingSold", listingSoldHandler);
     tradingContract.on("ListingCancelled", listingCancelledHandler);
     tradingContract.on("BidPlaced", bidPlacedHandler);
 
-    // Cleanup event listeners
     return () => {
       tradingContract.off("ListingCreated", listingCreatedHandler);
       tradingContract.off("ListingSold", listingSoldHandler);
@@ -301,7 +295,7 @@ export const ListingsProvider = ({ children }) => {
     }
   }, [tradingContract]);
 
-  // Fetch user-specific data when account is available
+  // Fetch user-specific data when account or listings change
   useEffect(() => {
     if (account) {
       fetchUserListings();
