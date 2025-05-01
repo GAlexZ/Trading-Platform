@@ -35,6 +35,9 @@ contract PokemonCard is ERC721, ERC721URIStorage, ERC721Enumerable, Ownable {
     // Event emitted when a new Pokemon card is minted
     event PokemonMinted(address indexed to, uint256 indexed tokenId, string name, string pokemonType);
     
+    // Event emitted when a Pokemon card is burned
+    event PokemonBurned(address indexed burner, uint256 indexed tokenId, string name);
+    
     /**
      * @dev Constructor initializes the ERC721 token with name and symbol
      */
@@ -92,6 +95,31 @@ contract PokemonCard is ERC721, ERC721URIStorage, ERC721Enumerable, Ownable {
         emit PokemonMinted(to, tokenId, name, pokemonType);
         
         return tokenId;
+    }
+
+    /**
+     * @dev Burn a Pokemon card
+     * @param tokenId Token ID to burn
+     */
+    function burnPokemon(uint256 tokenId) public {
+        // Check that the contract owner
+        address owner = ownerOf(tokenId);
+        require(
+            owner == _msgSender(),
+            "PokemonCard: caller is not owner or admin"
+        );
+        
+        // Store the name before burning
+        string memory name = pokemonData[tokenId].name;
+        
+        // Delete the Pokemon data
+        delete pokemonData[tokenId];
+        
+        // Burn the token
+        _burn(tokenId);
+        
+        // Emit event
+        emit PokemonBurned(_msgSender(), tokenId, name);
     }
     
     /**

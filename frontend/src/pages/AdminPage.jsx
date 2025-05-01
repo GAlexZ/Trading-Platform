@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, AlertTriangle, CheckCircle } from "lucide-react";
+import {
+  ArrowLeft,
+  AlertTriangle,
+  CheckCircle,
+  Trash2,
+  Shield,
+} from "lucide-react";
 import { useWeb3 } from "../context/Web3Context";
 import ContractAddresses from "../components/ContractAddresses";
 
@@ -9,6 +15,7 @@ const AdminPage = () => {
   const {
     account,
     mintPokemon,
+    burnPokemon,
     pokemonCardContract,
     tradingContract,
     chainId,
@@ -31,6 +38,8 @@ const AdminPage = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [mintedCards, setMintedCards] = useState([]);
   const [isLoadingCards, setIsLoadingCards] = useState(false);
+  const [showBurnConfirmation, setShowBurnConfirmation] = useState(false);
+  const [cardToBurn, setCardToBurn] = useState(null);
 
   // Pokemon types for selection
   const pokemonTypes = [
@@ -174,6 +183,43 @@ const AdminPage = () => {
     }
   };
 
+  // Handle burn button click
+  const handleBurnClick = (card) => {
+    setCardToBurn(card);
+    setShowBurnConfirmation(true);
+  };
+
+  // Confirm and burn NFT
+  const confirmBurn = async () => {
+    if (!cardToBurn) return;
+
+    setIsProcessing(true);
+    setShowBurnConfirmation(false);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const result = await burnPokemon(cardToBurn.id);
+
+      if (result.success) {
+        setSuccessMessage(
+          `Successfully burned ${cardToBurn.name} (Token ID: ${cardToBurn.id})`
+        );
+
+        // Remove card from list
+        setMintedCards(mintedCards.filter((card) => card.id !== cardToBurn.id));
+      } else {
+        setErrorMessage(result.error || "Failed to burn Pokemon card");
+      }
+    } catch (error) {
+      console.error("Error burning Pokemon:", error);
+      setErrorMessage(error.message || "Failed to burn Pokemon card");
+    } finally {
+      setIsProcessing(false);
+      setCardToBurn(null);
+    }
+  };
+
   // Render admin notice if not connected
   if (!account) {
     return (
@@ -232,7 +278,7 @@ const AdminPage = () => {
         {/* Main content */}
         <div className="p-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">
-            Admin Dashboard - Mint Pokemon Cards
+            Admin Dashboard - Mint & Burn Pokemon Cards
           </h1>
 
           {/* Contract Addresses Display */}
@@ -443,7 +489,7 @@ const AdminPage = () => {
               </form>
             </div>
 
-            {/* Recently Minted Cards */}
+            {/* Recently Minted Cards with Burn Option */}
             <div>
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-medium text-gray-900">
@@ -482,11 +528,20 @@ const AdminPage = () => {
                             Token ID: {card.id}
                           </p>
                         </div>
-                        {card.isShiny && (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded">
-                            ✨ Shiny
-                          </span>
-                        )}
+                        <div className="flex items-center">
+                          {card.isShiny && (
+                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded mr-2">
+                              ✨ Shiny
+                            </span>
+                          )}
+                          <button
+                            onClick={() => handleBurnClick(card)}
+                            className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                            title="Burn NFT"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
                         <div>
@@ -523,6 +578,51 @@ const AdminPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Burn Confirmation Modal */}
+      {showBurnConfirmation && cardToBurn && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-md w-full mx-4 overflow-hidden">
+            <div className="p-6">
+              <div className="sm:flex sm:items-start">
+                <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                  <Trash2 className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Burn Pokemon NFT
+                  </h3>
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-500">
+                      Are you sure you want to burn {cardToBurn.name} (ID:{" "}
+                      {cardToBurn.id})? This action cannot be undone and the NFT
+                      will be permanently removed from the blockchain.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:ml-3 sm:w-auto sm:text-sm"
+                  onClick={confirmBurn}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? "Processing..." : "Burn NFT"}
+                </button>
+                <button
+                  type="button"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:w-auto sm:text-sm"
+                  onClick={() => setShowBurnConfirmation(false)}
+                  disabled={isProcessing}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

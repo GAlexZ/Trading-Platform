@@ -7,9 +7,9 @@ const resolveIPFS = (uri) =>
   uri.startsWith("ipfs://") ? `https://ipfs.io/ipfs/${uri.slice(7)}` : uri;
 
 // Contract addresses (would come from environment variables in a real app)
-const TRADING_CONTRACT_ADDRESS = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";
+const TRADING_CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 const POKEMON_CARD_CONTRACT_ADDRESS =
-  "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0";
+  "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 
 // Create context
 const Web3Context = createContext();
@@ -493,6 +493,23 @@ export const Web3Provider = ({ children }) => {
     }
   };
 
+  const burnPokemon = async (tokenId) => {
+    if (!signer || !pokemonCardContract)
+      return { success: false, error: "Wallet not connected" };
+
+    try {
+      // Call the burnPokemon function
+      const tx = await pokemonCardContract.burnPokemon(tokenId);
+
+      await tx.wait();
+
+      return { success: true, transaction: tx };
+    } catch (error) {
+      console.error("Error burning Pokemon:", error);
+      return { success: false, error: error.message };
+    }
+  };
+
   // Context value
   const value = {
     provider,
@@ -514,6 +531,7 @@ export const Web3Provider = ({ children }) => {
     finalizeAuction,
     cancelListing,
     withdraw,
+    burnPokemon,
   };
 
   return <Web3Context.Provider value={value}>{children}</Web3Context.Provider>;
