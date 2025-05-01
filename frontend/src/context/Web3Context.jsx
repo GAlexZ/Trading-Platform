@@ -3,9 +3,6 @@ import { ethers } from "ethers";
 import TradingABI from "../contracts/Trading.json";
 import PokemonCardABI from "../contracts/PokemonCard.json";
 
-const resolveIPFS = (uri) =>
-  uri.startsWith("ipfs://") ? `https://ipfs.io/ipfs/${uri.slice(7)}` : uri;
-
 // Contract addresses (would come from environment variables in a real app)
 const TRADING_CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 const POKEMON_CARD_CONTRACT_ADDRESS =
@@ -282,6 +279,23 @@ export const Web3Provider = ({ children }) => {
       return { success: false, error: "Wallet not connected" };
 
     try {
+      const nft = new ethers.Contract(
+        nftContractAddress,
+        PokemonCardABI.abi,
+        signer
+      );
+
+      const isApproved = await nft.isApprovedForAll(
+        account,
+        TRADING_CONTRACT_ADDRESS
+      );
+      if (!isApproved) {
+        const approvalTx = await nft.setApprovalForAll(
+          TRADING_CONTRACT_ADDRESS,
+          true
+        );
+        await approvalTx.wait();
+      }
       // Convert price to wei
       const priceInWei = ethers.utils.parseEther(startingPrice.toString());
 
@@ -430,59 +444,45 @@ export const Web3Provider = ({ children }) => {
     }
   };
 
-  // Fetch all Pokemon token IDs owned by the connected account, then pull their metadata + real IPFS image
+  // Fetch all Pokemon token IDs owned by the connected account, then pull their metadata
   const fetchMyPokemonCards = async () => {
     if (!signer || !pokemonCardContract || !account) {
       return { success: false, error: "Wallet not connected" };
     }
     try {
-      // 1) How many tokens does the user have?
-      const balanceBN = await pokemonCardContract.callStatic.balanceOf(account);
-      const balance = Number(balanceBN);
-
-      // 2) Pull each tokenId as a string
-      const tokenIds = await Promise.all(
-        Array.from({ length: balance }, (_, i) =>
-          pokemonCardContract.callStatic
-            .tokenOfOwnerByIndex(account, i)
-            .then((bn) => bn.toString())
-        )
-      );
+      // 1) Get IDs & on-chain data
+      const [tokenIdsBN, pokemonInfos] =
+        await pokemonCardContract.callStatic.getAllPokemonByOwner(account);
+      const tokenIds = tokenIdsBN.map((bn) => bn.toString());
 
       if (tokenIds.length === 0) {
         return { success: true, cards: [] };
       }
 
-      // 3) Get on‐chain stats in bulk
-      const onChainBatch =
-        await pokemonCardContract.callStatic.batchGetPokemonDetails(tokenIds);
-
-      // 4) Fetch each tokenURI JSON from IPFS
+      // 2) Grab each tokenURI (on-chain)
+      //    In your setup, tokenURI returns the PNG directly, not JSON metadata
       const tokenURIs = await Promise.all(
-        tokenIds.map((id) => pokemonCardContract.callStatic.tokenURI(id))
-      );
-      const metadatas = await Promise.all(
-        tokenURIs.map(async (rawUri) => {
-          const url = resolveIPFS(rawUri);
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`Failed to fetch metadata at ${url}`);
-          return res.json();
-        })
+        tokenIds.map((id) => pokemonCardContract.tokenURI(id))
       );
 
-      // 5) Merge stats + real IPFS image into your cards array
+      // helper to map ipfs://… → https://ipfs.io/ipfs/…
+      const resolveIPFS = (uri) =>
+        uri.startsWith("ipfs://")
+          ? `https://ipfs.io/ipfs/${uri.slice(7)}`
+          : uri;
+
+      // 3) Build your cards array, using tokenURI as the image URL
       const cards = tokenIds.map((id, idx) => {
-        const chain = onChainBatch[idx];
-        const meta = metadatas[idx];
+        const chain = pokemonInfos[idx];
         return {
           id,
-          name: meta.name,
+          name: chain.name,
           generation: Number(chain.generation),
           type: chain.pokemonType,
           power: Number(chain.power),
           rarity: Number(chain.rarity),
           isShiny: chain.isShiny,
-          image: resolveIPFS(meta.image),
+          image: resolveIPFS(tokenURIs[idx]),
         };
       });
 

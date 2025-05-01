@@ -96,7 +96,9 @@ export const ListingsProvider = ({ children }) => {
               power: pokemonBatch[index].power,
               rarity: pokemonBatch[index].rarity,
               isShiny: pokemonBatch[index].isShiny,
-              image: `/api/placeholder/300/400`, // Placeholder for demo
+              image: `/api/placeholder/300/400?text=${encodeURIComponent(
+                pokemonBatch[index].name
+              )}`, // Use placeholder
             };
           });
         } catch (err) {
