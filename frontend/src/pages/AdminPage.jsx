@@ -679,9 +679,9 @@ const AdminPage = () => {
                         </div>
 
                         {/* Card Info */}
-                        <div className="flex-1">
-                          <div className="flex justify-between items-start">
-                            <div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start flex-wrap">
+                            <div className="mr-2">
                               <h3 className="font-medium text-gray-900">
                                 {card.name}
                               </h3>
@@ -689,20 +689,20 @@ const AdminPage = () => {
                                 Token ID: {card.id}
                               </p>
                               {card.tokenURI && (
-                                <p className="text-xs text-gray-400 truncate">
+                                <p className="text-xs text-gray-400 truncate max-w-full">
                                   URI: {card.tokenURI}
                                 </p>
                               )}
                             </div>
-                            <div className="flex items-center">
+                            <div className="flex items-center flex-shrink-0 mt-1 md:mt-0">
                               {card.isShiny && (
-                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded mr-2">
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded mr-2 whitespace-nowrap">
                                   ✨ Shiny
                                 </span>
                               )}
                               <button
                                 onClick={() => handleBurnClick(card)}
-                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded flex-shrink-0"
                                 title="Burn NFT"
                               >
                                 <Trash2 size={16} />

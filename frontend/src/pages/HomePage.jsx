@@ -4,6 +4,7 @@ import { Tag, ArrowUpDown, Clock } from "lucide-react";
 import { useListings } from "../context/ListingsContext";
 import NftCard from "../components/NftCard";
 import { useNavigate } from "react-router-dom";
+import { resolveIPFS } from "../utils/ipfsHelper";
 
 const HomePage = () => {
   const { listings, isLoading } = useListings();
@@ -14,49 +15,65 @@ const HomePage = () => {
 
   return (
     <div className="bg-white">
-      {/* Hero section */}
-      <div className="relative overflow-hidden">
+      {/* Hero section - Improved image placement */}
+      <div className="relative bg-white overflow-hidden">
         <div className="max-w-7xl mx-auto">
-          <div className="relative z-10 pb-8 bg-white sm:pb-16 md:pb-20 lg:w-full lg:pb-28 xl:pb-32">
-            <div className="mt-10 mx-auto max-w-7xl px-4 sm:mt-12 sm:px-6 md:mt-16 lg:mt-20 lg:px-8 xl:mt-28">
-              <div className="text-center lg:text-left">
-                <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
-                  <span className="block">Trade Pokemon Cards</span>
-                  <span className="block text-indigo-600">
-                    On The Blockchain
-                  </span>
-                </h1>
-                <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0">
-                  Buy, sell, and auction rare Pokemon cards using our
-                  decentralized trading platform. Fixed price, English auctions,
-                  and Dutch auctions available.
-                </p>
-                <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
-                  <div className="rounded-md shadow">
-                    <Link
-                      to="/marketplace"
-                      className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 md:py-4 md:text-lg md:px-10"
-                    >
-                      Start Trading
-                    </Link>
-                  </div>
-                  <div className="mt-3 sm:mt-0 sm:ml-3">
-                    <a
-                      href="#features"
-                      className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 md:py-4 md:text-lg md:px-10"
-                    >
-                      Learn More
-                    </a>
+          <div className="relative z-10 bg-white sm:pb-16 md:pb-20 lg:max-w-2xl lg:w-full lg:pb-28 xl:pb-32">
+            {/* Create an angled background for better visual separation */}
+            <svg
+              className="hidden lg:block absolute right-0 inset-y-0 h-full w-48 text-white transform translate-x-1/2"
+              fill="currentColor"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <polygon points="50,0 100,0 50,100 0,100" />
+            </svg>
+
+            <div className="pt-10 pb-8 sm:pt-16 sm:pb-16 lg:pt-20 lg:pb-24 xl:pt-28 xl:pb-28">
+              <div className="mt-6 mx-auto max-w-7xl px-4 sm:mt-8 sm:px-6 lg:px-8">
+                <div className="text-center lg:text-left">
+                  <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
+                    <span className="block">Trade Pokemon Cards</span>
+                    <span className="block text-indigo-600">
+                      On The Blockchain
+                    </span>
+                  </h1>
+                  <p className="mt-3 text-base text-gray-500 sm:mt-5 sm:text-lg sm:max-w-xl sm:mx-auto md:mt-5 md:text-xl lg:mx-0">
+                    Buy, sell, and auction rare Pokemon cards using our
+                    decentralized trading platform. Fixed price, English
+                    auctions, and Dutch auctions available.
+                  </p>
+                  <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
+                    <div className="rounded-md shadow">
+                      <Link
+                        to="/marketplace"
+                        className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 md:py-4 md:text-lg md:px-10"
+                      >
+                        Start Trading
+                      </Link>
+                    </div>
+                    <div className="mt-3 sm:mt-0 sm:ml-3">
+                      <a
+                        href="#features"
+                        className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-indigo-700 bg-indigo-100 hover:bg-indigo-200 md:py-4 md:text-lg md:px-10"
+                      >
+                        Learn More
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
+        {/* Improved image container with better responsive behavior */}
         <div className="lg:absolute lg:inset-y-0 lg:right-0 lg:w-1/2">
           <img
-            className="h-56 w-full object-cover sm:h-72 md:h-96 lg:w-full lg:h-full"
-            src="/api/placeholder/800/600"
+            className="h-56 w-full object-cover object-center sm:h-72 md:h-96 lg:w-full lg:h-full"
+            src={resolveIPFS(
+              "ipfs://bafybeicgdimkd6gpbmsoytqgnhvbg66hekthlnhwsrhglhawtv3xcb6gi4"
+            )}
             alt="Pokemon cards collection"
           />
         </div>
@@ -129,6 +146,7 @@ const HomePage = () => {
         </div>
       </div>
 
+      {/* Rest of the component remains the same */}
       {/* How it works section */}
       <div className="bg-gray-50 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
