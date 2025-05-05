@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { useListings } from "../context/ListingsContext";
 import { useWeb3 } from "../context/Web3Context";
-import SaleTypeBadge from "../components/SaleTypeBadge";
+import { resolveIPFS, createPlaceholder } from "../utils/ipfsHelper";
+import { ExternalLink, LinkIcon } from "lucide-react";
 
 const NFTDetailView = () => {
   const { listingId } = useParams();
@@ -36,6 +37,23 @@ const NFTDetailView = () => {
     seconds: 0,
     expired: false,
   });
+
+  // Get image URL with proper IPFS handling
+  const getImageUrl = () => {
+    // Check if we have a tokenURI to use
+    if (listing?.tokenURI) {
+      return resolveIPFS(listing.tokenURI);
+    }
+
+    // If we have an image property, use that
+    if (listing?.image) {
+      // It might already be resolved, but use resolveIPFS to be sure
+      return resolveIPFS(listing.image);
+    }
+
+    // Fallback to placeholder
+    return createPlaceholder(listing?.name || "Pokemon");
+  };
 
   // Check if the current user is the seller of this listing
   const isSeller =
@@ -388,14 +406,29 @@ const NFTDetailView = () => {
           <div className="md:w-1/2">
             <div className="relative">
               <img
-                src={listing.image}
+                src={getImageUrl()}
                 alt={listing.name}
                 className="w-full h-96 object-contain p-4"
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = createPlaceholder(listing.name);
+                }}
               />
               {listing.isShiny && (
                 <span className="absolute top-6 right-6 px-3 py-1 bg-yellow-400 text-yellow-800 text-sm font-medium rounded-md">
                   ✨ Shiny
                 </span>
+              )}
+              {listing.tokenURI && (
+                <div className="absolute bottom-2 left-4 text-xs text-gray-500">
+                  href={resolveIPFS(listing.tokenURI)}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center hover:text-indigo-600"
+                  <a>
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    View Original
+                  </a>
+                </div>
               )}
             </div>
           </div>

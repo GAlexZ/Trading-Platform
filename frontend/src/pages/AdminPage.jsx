@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { useWeb3 } from "../context/Web3Context";
 import ContractAddresses from "../components/ContractAddresses";
+import { resolveIPFS, createPlaceholder } from "../utils/ipfsHelper";
+import { LinkIcon, RefreshCw, ImageIcon } from "lucide-react";
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -33,7 +35,8 @@ const AdminPage = () => {
     power: 100,
     rarity: 3,
     isShiny: false,
-    ipfsMetadataURI: "ipfs://QmPlaceholder", // This would be a real IPFS URI in production
+    ipfsMetadataURI:
+      "ipfs://bafybeigz5x3655zd4qll7lcdbxoyjyoqj4tizvzjajtfm7f2aau2svdlsa",
   });
 
   // Component state
@@ -44,6 +47,8 @@ const AdminPage = () => {
   const [isLoadingCards, setIsLoadingCards] = useState(false);
   const [showBurnConfirmation, setShowBurnConfirmation] = useState(false);
   const [cardToBurn, setCardToBurn] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [isTestingIPFS, setIsTestingIPFS] = useState(false);
 
   // Check if current user is the contract owner
   useEffect(() => {
@@ -73,6 +78,37 @@ const AdminPage = () => {
     }
   }, [isOwner, isCheckingOwner, navigate]);
 
+  // Handle IPFS URI change and update preview
+  const handleIPFSChange = (e) => {
+    const uri = e.target.value;
+    setFormData({
+      ...formData,
+      ipfsMetadataURI: uri,
+    });
+
+    // Update preview image
+    if (uri) {
+      setImagePreview(resolveIPFS(uri));
+    } else {
+      setImagePreview("");
+    }
+  };
+
+  // Test IPFS resolution
+  const testIPFSResolution = () => {
+    setIsTestingIPFS(true);
+
+    try {
+      const resolvedUrl = resolveIPFS(formData.ipfsMetadataURI);
+      setImagePreview(resolvedUrl);
+      setSuccessMessage(`IPFS URI resolved to: ${resolvedUrl}`);
+    } catch (error) {
+      setErrorMessage(`Failed to resolve IPFS URI: ${error.message}`);
+    } finally {
+      setIsTestingIPFS(false);
+    }
+  };
+
   // Pokemon types for selection
   const pokemonTypes = [
     "Fire",
@@ -98,20 +134,38 @@ const AdminPage = () => {
         await pokemonCardContract.getAllPokemonByOwner(account);
 
       // Format the data
-      const formattedCards = tokenIds.map((id, index) => {
-        const pokemon = pokemons[index];
-        return {
-          id: id.toString(),
-          name: pokemon.name,
-          generation: pokemon.generation,
-          type: pokemon.pokemonType,
-          power: pokemon.power,
-          rarity: pokemon.rarity,
-          isShiny: pokemon.isShiny,
-          image: `/api/placeholder/300/400`, // Placeholder for demo
-          timestamp: new Date().toISOString(), // We don't have timestamp in contract, so use current time
-        };
-      });
+      const formattedCards = await Promise.all(
+        tokenIds.map(async (id, index) => {
+          const pokemon = pokemons[index];
+          const tokenId = id.toString();
+
+          // Get token URI
+          let tokenURI = "";
+          try {
+            tokenURI = await pokemonCardContract.tokenURI(tokenId);
+          } catch (err) {
+            console.error(`Error fetching tokenURI for token ${tokenId}:`, err);
+          }
+
+          // Resolve the IPFS URI to an HTTP URL
+          const imageUrl = tokenURI
+            ? resolveIPFS(tokenURI)
+            : createPlaceholder(pokemon.name);
+
+          return {
+            id: tokenId,
+            name: pokemon.name,
+            generation: pokemon.generation,
+            type: pokemon.pokemonType,
+            power: pokemon.power,
+            rarity: pokemon.rarity,
+            isShiny: pokemon.isShiny,
+            tokenURI: tokenURI,
+            image: imageUrl,
+            timestamp: new Date().toISOString(), // We don't have timestamp in contract, so use current time
+          };
+        })
+      );
 
       setMintedCards(formattedCards);
     } catch (err) {
@@ -511,7 +565,7 @@ const AdminPage = () => {
                   </label>
                 </div>
 
-                {/* IPFS Metadata URI */}
+                {/* IPFS Metadata URI with Preview */}
                 <div>
                   <label
                     htmlFor="ipfsMetadataURI"
@@ -519,19 +573,52 @@ const AdminPage = () => {
                   >
                     IPFS Metadata URI
                   </label>
-                  <input
-                    type="text"
-                    id="ipfsMetadataURI"
-                    name="ipfsMetadataURI"
-                    value={formData.ipfsMetadataURI}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    placeholder="ipfs://bafybeigz5x3655zd4qll7lcdbxoyjyoqj4tizvzjajtfm7f2aau2svdlsa"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    In a real app, you would upload image to IPFS and use the
-                    resulting hash. For testing, you can use this placeholder.
-                  </p>
+                  <div className="mt-1 flex items-center">
+                    <input
+                      type="text"
+                      id="ipfsMetadataURI"
+                      name="ipfsMetadataURI"
+                      value={formData.ipfsMetadataURI}
+                      onChange={handleIPFSChange}
+                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="ipfs://bafybeigz5x3655zd4qll7lcdbxoyjyoqj4tizvzjajtfm7f2aau2svdlsa"
+                    />
+                    <button
+                      type="button"
+                      onClick={testIPFSResolution}
+                      disabled={isTestingIPFS}
+                      className="ml-2 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                      {isTestingIPFS ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <LinkIcon className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Image Preview */}
+                  {imagePreview && (
+                    <div className="mt-3 border rounded-md p-2">
+                      <p className="text-xs text-gray-500 mb-1">
+                        Image Preview:
+                      </p>
+                      <div className="flex items-center justify-center border border-gray-200 rounded-md p-2 bg-gray-50 h-40">
+                        <img
+                          src={imagePreview}
+                          alt="IPFS Preview"
+                          className="max-h-full max-w-full object-contain"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = createPlaceholder(formData.name);
+                          }}
+                        />
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1 break-all">
+                        Resolved URL: {imagePreview}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Submit Button */}
@@ -577,57 +664,83 @@ const AdminPage = () => {
                       key={card.id}
                       className="border rounded-md p-4 hover:shadow-sm"
                     >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-medium text-gray-900">
-                            {card.name}
-                          </h3>
-                          <p className="text-sm text-gray-500">
-                            Token ID: {card.id}
-                          </p>
+                      <div className="flex md:flex-row flex-col gap-3">
+                        {/* Card Image */}
+                        <div className="w-24 h-32 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                          <img
+                            src={card.image}
+                            alt={card.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.src = createPlaceholder(card.name);
+                            }}
+                          />
                         </div>
-                        <div className="flex items-center">
-                          {card.isShiny && (
-                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded mr-2">
-                              ✨ Shiny
-                            </span>
+
+                        {/* Card Info */}
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-medium text-gray-900">
+                                {card.name}
+                              </h3>
+                              <p className="text-sm text-gray-500">
+                                Token ID: {card.id}
+                              </p>
+                              {card.tokenURI && (
+                                <p className="text-xs text-gray-400 truncate">
+                                  URI: {card.tokenURI}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center">
+                              {card.isShiny && (
+                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded mr-2">
+                                  ✨ Shiny
+                                </span>
+                              )}
+                              <button
+                                onClick={() => handleBurnClick(card)}
+                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
+                                title="Burn NFT"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-gray-500">Type:</span>{" "}
+                              <span className="text-gray-900">{card.type}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Gen:</span>{" "}
+                              <span className="text-gray-900">
+                                {card.generation}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Power:</span>{" "}
+                              <span className="text-gray-900">
+                                {card.power}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Rarity:</span>{" "}
+                              <span className="text-gray-900">
+                                {"⭐".repeat(card.rarity)}
+                              </span>
+                            </div>
+                          </div>
+                          {card.timestamp && (
+                            <div className="mt-2 text-xs text-gray-400">
+                              Minted:{" "}
+                              {new Date(card.timestamp).toLocaleString()}
+                            </div>
                           )}
-                          <button
-                            onClick={() => handleBurnClick(card)}
-                            className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded"
-                            title="Burn NFT"
-                          >
-                            <Trash2 size={16} />
-                          </button>
                         </div>
                       </div>
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                        <div>
-                          <span className="text-gray-500">Type:</span>{" "}
-                          <span className="text-gray-900">{card.type}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Gen:</span>{" "}
-                          <span className="text-gray-900">
-                            {card.generation}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Power:</span>{" "}
-                          <span className="text-gray-900">{card.power}</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">Rarity:</span>{" "}
-                          <span className="text-gray-900">
-                            {"⭐".repeat(card.rarity)}
-                          </span>
-                        </div>
-                      </div>
-                      {card.timestamp && (
-                        <div className="mt-2 text-xs text-gray-400">
-                          Minted: {new Date(card.timestamp).toLocaleString()}
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

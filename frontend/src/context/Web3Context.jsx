@@ -6,9 +6,9 @@ import PokemonCardABI from "../contracts/PokemonCard.json";
 import { resolveIPFS } from "../utils/ipfsHelper";
 
 // Contract addresses (would come from environment variables in a real app)
-const TRADING_CONTRACT_ADDRESS = "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d";
+const TRADING_CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
 const POKEMON_CARD_CONTRACT_ADDRESS =
-  "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c";
+  "0x5FbDB2315678afecb367f032d93F642f64180aa3";
 // Create context
 const Web3Context = createContext();
 
