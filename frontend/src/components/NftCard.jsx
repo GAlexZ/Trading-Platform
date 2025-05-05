@@ -1,9 +1,17 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Tag, ArrowUpDown, Clock } from "lucide-react";
+import { Tag, ArrowUpDown, Clock, XCircle } from "lucide-react";
 import SaleTypeBadge from "./SaleTypeBadge";
+import { useWeb3 } from "../context/Web3Context";
 
 const NftCard = ({ listing, onClick }) => {
+  // Get the current account from Web3Context
+  const { account } = useWeb3();
+
+  // Check if the current user is the seller of this listing
+  const isUserSeller =
+    account && listing.seller.toLowerCase() === account.toLowerCase();
+
   // Format price display with ETH symbol
   const formatPrice = (price) => {
     return `${price} ETH`;
@@ -102,19 +110,32 @@ const NftCard = ({ listing, onClick }) => {
             </p>
           </div>
 
-          <button
-            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            onClick={(e) => {
-              e.stopPropagation(); // Prevent card click
-              onClick();
-            }}
-          >
-            {listing.saleType === "FixedPrice"
-              ? "Buy Now"
-              : listing.saleType === "EnglishAuction"
-              ? "Place Bid"
-              : "Buy Now"}
-          </button>
+          {/* Conditionally render different buttons based on whether user is seller */}
+          {isUserSeller ? (
+            <button
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent card click
+                onClick();
+              }}
+            >
+              <XCircle className="h-4 w-4 mr-1" /> Cancel
+            </button>
+          ) : (
+            <button
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent card click
+                onClick();
+              }}
+            >
+              {listing.saleType === "FixedPrice"
+                ? "Buy Now"
+                : listing.saleType === "EnglishAuction"
+                ? "Place Bid"
+                : "Buy Now"}
+            </button>
+          )}
         </div>
 
         <div className="mt-2 flex items-center text-sm text-gray-500">

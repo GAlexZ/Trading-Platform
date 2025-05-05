@@ -37,6 +37,10 @@ const NFTDetailView = () => {
     expired: false,
   });
 
+  // Check if the current user is the seller of this listing
+  const isSeller =
+    account && listing?.seller?.toLowerCase() === account.toLowerCase();
+
   // Handle going back to marketplace
   const handleBack = () => {
     navigate("/marketplace");
@@ -165,7 +169,7 @@ const NFTDetailView = () => {
       return;
     }
 
-    if (listing.seller.toLowerCase() === account.toLowerCase()) {
+    if (isSeller) {
       setErrorMessage("You cannot buy or bid on your own listing");
       return;
     }
@@ -199,7 +203,7 @@ const NFTDetailView = () => {
       return;
     }
 
-    if (listing.seller.toLowerCase() !== account.toLowerCase()) {
+    if (!isSeller) {
       setErrorMessage("Only the seller can cancel this listing");
       return;
     }
@@ -359,8 +363,6 @@ const NFTDetailView = () => {
   const saleTypeInfo = getSaleTypeInfo(listing.saleType);
   const currentPrice =
     listing.saleType === "DutchAuction" ? getCurrentPrice() : listing.price;
-  const isSeller =
-    account && listing.seller.toLowerCase() === account.toLowerCase();
   const isAuctionEnded =
     (listing.saleType === "EnglishAuction" ||
       listing.saleType === "DutchAuction") &&
@@ -589,30 +591,34 @@ const NFTDetailView = () => {
             {/* Action buttons */}
             {!successMessage && (
               <div className="space-y-3">
-                {/* Buy/Bid button (for non-sellers) */}
-                {!isSeller && !isAuctionEnded && (
-                  <button
-                    onClick={handleAction}
-                    disabled={isProcessing}
-                    className="w-full bg-indigo-600 border border-transparent rounded-md shadow-sm py-3 px-4 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                  >
-                    {isProcessing
-                      ? "Processing..."
-                      : listing.saleType === "EnglishAuction"
-                      ? "Place Bid"
-                      : "Buy Now"}
-                  </button>
-                )}
-
-                {/* Cancel listing button (for sellers) */}
-                {isSeller && !isAuctionEnded && (
+                {/* Conditional rendering of either Buy/Bid button or Cancel button based on whether user is seller */}
+                {isSeller ? (
                   <button
                     onClick={handleCancelListing}
-                    disabled={isProcessing}
+                    disabled={
+                      isProcessing ||
+                      isAuctionEnded ||
+                      (listing.saleType === "EnglishAuction" &&
+                        parseFloat(listing.highestBid) > 0)
+                    }
                     className="w-full bg-red-600 border border-transparent rounded-md shadow-sm py-3 px-4 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
                   >
                     {isProcessing ? "Processing..." : "Cancel Listing"}
                   </button>
+                ) : (
+                  !isAuctionEnded && (
+                    <button
+                      onClick={handleAction}
+                      disabled={isProcessing}
+                      className="w-full bg-indigo-600 border border-transparent rounded-md shadow-sm py-3 px-4 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                    >
+                      {isProcessing
+                        ? "Processing..."
+                        : listing.saleType === "EnglishAuction"
+                        ? "Place Bid"
+                        : "Buy Now"}
+                    </button>
+                  )
                 )}
               </div>
             )}
@@ -620,7 +626,7 @@ const NFTDetailView = () => {
         </div>
       </div>
 
-      {/* Confirmation modal */}
+      {/* Confirmation modal - Updated to handle both buying/bidding and cancellation */}
       {showConfirmation && (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg max-w-md w-full mx-4 overflow-hidden">
