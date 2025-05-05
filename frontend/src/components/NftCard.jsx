@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Tag, ArrowUpDown, Clock, XCircle } from "lucide-react";
 import SaleTypeBadge from "./SaleTypeBadge";
 import { useWeb3 } from "../context/Web3Context";
+import { resolveIPFS } from "../utils/ipfsHelper";
 
 const NftCard = ({ listing, onClick }) => {
   // Get the current account from Web3Context
@@ -46,6 +47,25 @@ const NftCard = ({ listing, onClick }) => {
     ? getTimeRemaining(listing.endTime)
     : null;
 
+  // Get image URL with fallback
+  const getImageUrl = () => {
+    // Check if we have a tokenURI to use
+    if (listing.tokenURI) {
+      return resolveIPFS(listing.tokenURI);
+    }
+
+    // If we have an image property, use that
+    if (listing.image) {
+      // It might already be resolved, but use resolveIPFS to be sure
+      return resolveIPFS(listing.image);
+    }
+
+    // Fallback to placeholder
+    return `/api/placeholder/300/400?text=${encodeURIComponent(
+      listing.name || "Pokemon"
+    )}`;
+  };
+
   return (
     <div
       className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200 cursor-pointer"
@@ -53,9 +73,16 @@ const NftCard = ({ listing, onClick }) => {
     >
       <div className="relative">
         <img
-          src={listing.image}
+          src={getImageUrl()}
           alt={listing.name}
           className="w-full h-48 object-cover object-center"
+          onError={(e) => {
+            // If image fails to load, use placeholder
+            e.target.onerror = null;
+            e.target.src = `/api/placeholder/300/400?text=${encodeURIComponent(
+              listing.name || "Pokemon"
+            )}`;
+          }}
         />
         {listing.isShiny && (
           <span className="absolute top-2 right-2 px-2 py-1 bg-yellow-400 text-yellow-800 text-xs font-medium rounded-md">

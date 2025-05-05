@@ -1,7 +1,9 @@
+// frontend/src/context/Web3Context.jsx
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { ethers } from "ethers";
 import TradingABI from "../contracts/Trading.json";
 import PokemonCardABI from "../contracts/PokemonCard.json";
+import { resolveIPFS } from "../utils/ipfsHelper";
 
 // Contract addresses (would come from environment variables in a real app)
 const TRADING_CONTRACT_ADDRESS = "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d";
@@ -478,20 +480,14 @@ export const Web3Provider = ({ children }) => {
       }
 
       // 2) Grab each tokenURI (on-chain)
-      //    In your setup, tokenURI returns the PNG directly, not JSON metadata
       const tokenURIs = await Promise.all(
         tokenIds.map((id) => pokemonCardContract.tokenURI(id))
       );
 
-      // helper to map ipfs://… → https://ipfs.io/ipfs/…
-      const resolveIPFS = (uri) =>
-        uri.startsWith("ipfs://")
-          ? `https://ipfs.io/ipfs/${uri.slice(7)}`
-          : uri;
-
       // 3) Build your cards array, using tokenURI as the image URL
       const cards = tokenIds.map((id, idx) => {
         const chain = pokemonInfos[idx];
+        const uri = tokenURIs[idx];
         return {
           id,
           name: chain.name,
@@ -500,7 +496,9 @@ export const Web3Provider = ({ children }) => {
           power: Number(chain.power),
           rarity: Number(chain.rarity),
           isShiny: chain.isShiny,
-          image: resolveIPFS(tokenURIs[idx]),
+          tokenURI: uri,
+          // Resolve IPFS URIs to HTTP URLs
+          image: resolveIPFS(uri),
         };
       });
 

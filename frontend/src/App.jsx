@@ -1,3 +1,4 @@
+// frontend/src/App.jsx
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -15,6 +16,8 @@ import AdminPage from "./pages/AdminPage";
 import MyCollectionPage from "./pages/MyCollectionPage";
 import { Web3Provider, useWeb3 } from "./context/Web3Context";
 import { ListingsProvider } from "./context/ListingsContext";
+// Import the IPFS helper utility explicitly
+import { resolveIPFS } from "./utils/ipfsHelper";
 import "./index.css";
 
 // Admin Route component that checks if the user is the contract owner

@@ -1,6 +1,8 @@
+// frontend/src/context/ListingsContext.jsx
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { ethers } from "ethers";
 import { useWeb3 } from "./Web3Context";
+import { resolveIPFS } from "../utils/ipfsHelper";
 
 // Create context
 const ListingsContext = createContext();
@@ -79,6 +81,7 @@ export const ListingsProvider = ({ children }) => {
 
       // Batch get Pokemon metadata for all token IDs at once
       let pokemonDetailsMap = {};
+      let tokenURIsMap = {};
 
       if (tokenIds.length > 0) {
         try {
@@ -87,8 +90,14 @@ export const ListingsProvider = ({ children }) => {
               tokenIds
             );
 
+          // Get tokenURIs for all Pokemon cards
+          const tokenURIs = await Promise.all(
+            tokenIds.map((id) => pokemonCardContract.tokenURI(id))
+          );
+
           // Create a map of token ID to Pokemon details
           tokenIds.forEach((id, index) => {
+            tokenURIsMap[id] = tokenURIs[index];
             pokemonDetailsMap[id] = {
               name: pokemonBatch[index].name,
               generation: pokemonBatch[index].generation,
@@ -96,9 +105,8 @@ export const ListingsProvider = ({ children }) => {
               power: pokemonBatch[index].power,
               rarity: pokemonBatch[index].rarity,
               isShiny: pokemonBatch[index].isShiny,
-              image: `/api/placeholder/300/400?text=${encodeURIComponent(
-                pokemonBatch[index].name
-              )}`, // Use placeholder
+              // Use the token URI as the image source, properly resolved
+              image: resolveIPFS(tokenURIs[index]),
             };
           });
         } catch (err) {
@@ -140,7 +148,9 @@ export const ListingsProvider = ({ children }) => {
             power: 100,
             rarity: 3,
             isShiny: false,
-            image: `/api/placeholder/300/400`,
+            image: `/api/placeholder/300/400?text=${encodeURIComponent(
+              `Pokemon #${tokenIdStr}`
+            )}`,
           };
 
           // Format the listing data
@@ -158,6 +168,7 @@ export const ListingsProvider = ({ children }) => {
             saleType: saleTypeMap[saleType],
             status: statusMap[status],
             currentPrice: ethers.utils.formatEther(currentPrice),
+            tokenURI: tokenURIsMap[tokenIdStr] || null,
             ...metadata,
           });
         } catch (err) {
