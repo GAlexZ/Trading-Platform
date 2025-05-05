@@ -5,9 +5,31 @@ import { useWeb3 } from "../context/Web3Context";
 
 const Navbar = () => {
   const location = useLocation();
-  const { account, connectWallet, isConnecting } = useWeb3();
+  const { account, connectWallet, isConnecting, pokemonCardContract } =
+    useWeb3();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isOwner, setIsOwner] = useState(false);
+
+  // Check if the current connected account is the contract owner
+  const checkOwnership = async () => {
+    if (account && pokemonCardContract) {
+      try {
+        const owner = await pokemonCardContract.owner();
+        setIsOwner(owner.toLowerCase() === account.toLowerCase());
+      } catch (error) {
+        console.error("Error checking contract ownership:", error);
+        setIsOwner(false);
+      }
+    } else {
+      setIsOwner(false);
+    }
+  };
+
+  // Call the ownership check whenever the account or contract changes
+  React.useEffect(() => {
+    checkOwnership();
+  }, [account, pokemonCardContract]);
 
   // Handle search form submission
   const handleSearch = (e) => {
@@ -63,8 +85,8 @@ const Navbar = () => {
                   My Collection
                 </Link>
               )}
-              {/* Admin Link - Only show when connected */}
-              {account && (
+              {/* Admin Link - Only show when connected AND account is contract owner */}
+              {account && isOwner && (
                 <Link
                   to="/admin"
                   className={`${
@@ -201,8 +223,8 @@ const Navbar = () => {
                 My Collection
               </Link>
             )}
-            {/* Admin Link in Mobile Menu - Only show when connected */}
-            {account && (
+            {/* Admin Link in Mobile Menu - Only show when connected AND account is contract owner */}
+            {account && isOwner && (
               <Link
                 to="/admin"
                 className={`${

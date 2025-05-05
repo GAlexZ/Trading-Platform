@@ -21,6 +21,10 @@ const AdminPage = () => {
     chainId,
   } = useWeb3();
 
+  // State to track if current user is the contract owner
+  const [isOwner, setIsOwner] = useState(false);
+  const [isCheckingOwner, setIsCheckingOwner] = useState(true);
+
   // Form state
   const [formData, setFormData] = useState({
     name: "",
@@ -40,6 +44,34 @@ const AdminPage = () => {
   const [isLoadingCards, setIsLoadingCards] = useState(false);
   const [showBurnConfirmation, setShowBurnConfirmation] = useState(false);
   const [cardToBurn, setCardToBurn] = useState(null);
+
+  // Check if current user is the contract owner
+  useEffect(() => {
+    const checkOwnership = async () => {
+      setIsCheckingOwner(true);
+      if (account && pokemonCardContract) {
+        try {
+          const owner = await pokemonCardContract.owner();
+          setIsOwner(owner.toLowerCase() === account.toLowerCase());
+        } catch (error) {
+          console.error("Error checking contract ownership:", error);
+          setIsOwner(false);
+        }
+      } else {
+        setIsOwner(false);
+      }
+      setIsCheckingOwner(false);
+    };
+
+    checkOwnership();
+  }, [account, pokemonCardContract]);
+
+  // Redirect if not the owner
+  useEffect(() => {
+    if (!isCheckingOwner && !isOwner) {
+      navigate("/marketplace");
+    }
+  }, [isOwner, isCheckingOwner, navigate]);
 
   // Pokemon types for selection
   const pokemonTypes = [
@@ -92,10 +124,10 @@ const AdminPage = () => {
 
   // Fetch cards when component mounts or account changes
   useEffect(() => {
-    if (account && pokemonCardContract) {
+    if (account && pokemonCardContract && isOwner) {
       fetchMintedCards();
     }
-  }, [account, pokemonCardContract]);
+  }, [account, pokemonCardContract, isOwner]);
 
   // Handle form change
   const handleChange = (e) => {
@@ -220,8 +252,35 @@ const AdminPage = () => {
     }
   };
 
-  // Render admin notice if not connected
-  if (!account) {
+  // If still checking owner status, show loading
+  if (isCheckingOwner) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="p-4 border-b">
+            <button
+              onClick={handleBack}
+              className="inline-flex items-center text-gray-700 hover:text-gray-900"
+            >
+              <ArrowLeft className="h-5 w-5 mr-1" />
+              <span>Back to marketplace</span>
+            </button>
+          </div>
+
+          <div className="p-6 text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-600 mx-auto"></div>
+            <h3 className="mt-4 text-lg font-medium text-gray-900">
+              Checking access...
+            </h3>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If not the owner, this should never render due to the redirect,
+  // but keeping as a fallback
+  if (!isOwner) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -247,9 +306,8 @@ const AdminPage = () => {
                   </h3>
                   <div className="mt-2 text-sm text-yellow-700">
                     <p>
-                      Please connect your wallet with the admin account to
-                      access this page. Only the contract owner can mint new
-                      Pokemon cards.
+                      This page is only accessible to the contract owner. Please
+                      connect with the owner account to access this page.
                     </p>
                   </div>
                 </div>
