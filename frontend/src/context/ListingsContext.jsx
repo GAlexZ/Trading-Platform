@@ -217,27 +217,11 @@ export const ListingsProvider = ({ children }) => {
   useEffect(() => {
     if (!tradingContract) return;
 
-    const listingCreatedHandler = (
-      listingId,
-      seller,
-      nftContract,
-      tokenId,
-      price,
-      saleType
-    ) => {
-      console.log("Listing created:", {
-        listingId,
-        seller,
-        nftContract,
-        tokenId,
-        price,
-        saleType,
-      });
+    const listingCreatedHandler = () => {
       fetchListings();
     };
 
     const listingSoldHandler = (listingId, buyer, price) => {
-      console.log("Listing sold:", { listingId, buyer, price });
       fetchListings();
     };
 

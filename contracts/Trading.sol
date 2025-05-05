@@ -216,7 +216,7 @@ contract Trading is IERC721Receiver, ReentrancyGuard, Pausable, AccessControl {
         Listing storage listing = listings[listingId];
         
         require(listing.status == ListingStatus.Active, "Listing is not active");
-        require(listing.saleType == SaleType.FixedPrice, "Listing is not fixed price");
+        require(listing.saleType == SaleType.FixedPrice || listing.saleType == SaleType.DutchAuction, "Listing is not fixed price");
         require(block.timestamp <= listing.endTime, "Listing has expired");
         
         uint256 price = getCurrentPrice(listingId);

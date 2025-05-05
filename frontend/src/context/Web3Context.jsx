@@ -4,10 +4,9 @@ import TradingABI from "../contracts/Trading.json";
 import PokemonCardABI from "../contracts/PokemonCard.json";
 
 // Contract addresses (would come from environment variables in a real app)
-const TRADING_CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
+const TRADING_CONTRACT_ADDRESS = "0xc6e7DF5E7b4f2A278906862b61205850344D4e7d";
 const POKEMON_CARD_CONTRACT_ADDRESS =
-  "0x5FbDB2315678afecb367f032d93F642f64180aa3";
-
+  "0x3Aa5ebB10DC797CAC828524e59A333d0A371443c";
 // Create context
 const Web3Context = createContext();
 
@@ -323,17 +322,37 @@ export const Web3Provider = ({ children }) => {
     endPrice,
     duration
   ) => {
-    if (!signer || !tradingContract)
+    if (!signer || !tradingContract || !account) {
       return { success: false, error: "Wallet not connected" };
+    }
 
     try {
-      // Convert prices to wei
+      // 0) Ensure marketplace is approved to transfer this NFT
+      const nft = new ethers.Contract(
+        nftContractAddress,
+        PokemonCardABI.abi,
+        signer
+      );
+
+      const isApproved = await nft.isApprovedForAll(
+        account,
+        TRADING_CONTRACT_ADDRESS
+      );
+      if (!isApproved) {
+        const approvalTx = await nft.setApprovalForAll(
+          TRADING_CONTRACT_ADDRESS,
+          true
+        );
+        await approvalTx.wait();
+      }
+
+      // 1) Convert prices from ETH to wei
       const startingPriceInWei = ethers.utils.parseEther(
         startingPrice.toString()
       );
       const endPriceInWei = ethers.utils.parseEther(endPrice.toString());
 
-      // Create auction
+      // 2) Call the contract to create the Dutch auction
       const tx = await tradingContract.createDutchAuction(
         nftContractAddress,
         tokenId,
@@ -341,7 +360,6 @@ export const Web3Provider = ({ children }) => {
         endPriceInWei,
         duration
       );
-
       await tx.wait();
 
       return { success: true, transaction: tx };
