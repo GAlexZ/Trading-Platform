@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Filter, Wallet, AlertTriangle } from "lucide-react";
 import { useWeb3 } from "../context/Web3Context";
 import LoadingSpinner from "../components/LoadingSpinner";
-import { resolveIPFS } from "../utils/ipfsHelper";
+import IPFSImage from "../components/IPFSImage";
 
 const MyCollectionPage = () => {
   const navigate = useNavigate();
@@ -390,18 +390,14 @@ const MyCollectionPage = () => {
                     className="bg-white rounded-lg shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-200"
                   >
                     <div className="relative">
-                      {/* Use the image from tokenURI, with error handling */}
-                      <img
-                        src={resolveIPFS(card.tokenURI)}
+                      {/* Replace img tag with IPFSImage component */}
+                      <IPFSImage
+                        uri={card.tokenURI}
                         alt={card.name}
-                        className="w-full h-48 object-cover object-center"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = `/api/placeholder/300/400?text=${encodeURIComponent(
-                            card.name
-                          )}`;
-                        }}
+                        fallbackText={card.name || "Pokemon"}
+                        className="card-grid"
                       />
+
                       {card.isShiny && (
                         <span className="absolute top-2 right-2 px-2 py-1 bg-yellow-400 text-yellow-800 text-xs font-medium rounded-md">
                           ✨ Shiny

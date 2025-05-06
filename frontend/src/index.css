@@ -33,6 +33,49 @@ code {
   }
 }
 
+/* Consistent IPFS image scaling */
+.ipfs-image-container {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  aspect-ratio: 3/4; /* Maintain consistent aspect ratio across all card images */
+  background-color: #f9fafb; /* Light gray background while loading */
+}
+
+.ipfs-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* Ensures the image fits within the container without stretching */
+  object-position: center;
+}
+
+/* For detail views where we want a larger format */
+.ipfs-image-detail {
+  max-height: 400px;
+  width: 100%;
+  object-fit: contain;
+  object-position: center;
+}
+
+/* For card grid layouts */
+.card-grid .ipfs-image-container {
+  border-radius: 0.375rem 0.375rem 0 0; /* Rounded top corners to match cards */
+}
+
+/* Animation for image loading */
+@keyframes imageFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.ipfs-image.loaded {
+  animation: imageFadeIn 0.3s ease-in-out;
+}
+
 /* Responsive adjustments */
 @media (max-width: 640px) {
   .card-grid {

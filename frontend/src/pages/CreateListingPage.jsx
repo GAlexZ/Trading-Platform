@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useWeb3 } from "../context/Web3Context";
 import { useListings } from "../context/ListingsContext";
-//import { ethers } from "ethers";
+import IPFSImage from "../components/IPFSImage";
 
 const CreateListingPage = () => {
   const navigate = useNavigate();
@@ -333,11 +333,20 @@ const CreateListingPage = () => {
                         onClick={() => setSelectedNFT(nft)}
                       >
                         <div className="relative">
-                          <img
-                            src={nft.image}
-                            alt={nft.name}
-                            className="w-full h-32 object-cover"
-                          />
+                          <div className="relative">
+                            <IPFSImage
+                              uri={nft.tokenURI || nft.image}
+                              alt={nft.name}
+                              fallbackText={nft.name || "Pokemon"}
+                              className="card-grid"
+                              containerStyle={{ height: "130px" }} // Maintain the height similar to original
+                            />
+                            {nft.isShiny && (
+                              <span className="absolute top-2 right-2 px-2 py-0.5 bg-yellow-400 text-yellow-800 text-xs font-medium rounded-md">
+                                ✨ Shiny
+                              </span>
+                            )}
+                          </div>
                           {nft.isShiny && (
                             <span className="absolute top-2 right-2 px-2 py-0.5 bg-yellow-400 text-yellow-800 text-xs font-medium rounded-md">
                               ✨ Shiny

@@ -12,7 +12,8 @@ import {
 import { useListings } from "../context/ListingsContext";
 import { useWeb3 } from "../context/Web3Context";
 import { resolveIPFS, createPlaceholder } from "../utils/ipfsHelper";
-import { ExternalLink, LinkIcon } from "lucide-react";
+import { ExternalLink } from "lucide-react";
+import IPFSImage from "../components/IPFSImage";
 
 const NFTDetailView = () => {
   const { listingId } = useParams();
@@ -404,27 +405,34 @@ const NFTDetailView = () => {
         <div className="md:flex">
           {/* Left - Image */}
           <div className="md:w-1/2">
-            <div className="relative">
-              <img
-                src={getImageUrl()}
+            <div className="relative p-4">
+              {/* Replace the img tag with our IPFSImage component */}
+              <IPFSImage
+                uri={listing.tokenURI || listing.image}
                 alt={listing.name}
-                className="w-full h-96 object-contain p-4"
-                onError={(e) => {
-                  e.target.onerror = null;
-                  e.target.src = createPlaceholder(listing.name);
+                isDetail={true}
+                fallbackText={listing.name || "Pokemon"}
+                containerStyle={{
+                  height: "400px",
+                  maxWidth: "100%",
+                  margin: "0 auto",
                 }}
               />
+
               {listing.isShiny && (
                 <span className="absolute top-6 right-6 px-3 py-1 bg-yellow-400 text-yellow-800 text-sm font-medium rounded-md">
                   ✨ Shiny
                 </span>
               )}
+
               {listing.tokenURI && (
                 <div className="absolute bottom-2 left-4 text-xs text-gray-500">
-                  href={resolveIPFS(listing.tokenURI)}
-                  target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center hover:text-indigo-600"
-                  <a>
+                  <a
+                    href={resolveIPFS(listing.tokenURI)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center hover:text-indigo-600"
+                  >
                     <ExternalLink className="h-3 w-3 mr-1" />
                     View Original
                   </a>
@@ -432,7 +440,6 @@ const NFTDetailView = () => {
               )}
             </div>
           </div>
-
           {/* Right - Details */}
           <div className="md:w-1/2 p-6">
             <div className="flex items-center mb-4">
