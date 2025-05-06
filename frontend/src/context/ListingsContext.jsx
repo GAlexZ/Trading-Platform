@@ -3,6 +3,7 @@ import React, { createContext, useState, useContext, useEffect } from "react";
 import { ethers } from "ethers";
 import { useWeb3 } from "./Web3Context";
 import { resolveIPFS } from "../utils/ipfsHelper";
+import contractAddresses from "../contract-addresses.json";
 
 // Create context
 const ListingsContext = createContext();
@@ -10,8 +11,13 @@ const ListingsContext = createContext();
 export const useListings = () => useContext(ListingsContext);
 
 export const ListingsProvider = ({ children }) => {
-  const { tradingContract, pokemonCardContract, fetchMyPokemonCards, account } =
-    useWeb3();
+  const {
+    tradingContract,
+    pokemonCardContract,
+    fetchMyPokemonCards,
+    account,
+    provider,
+  } = useWeb3();
 
   const [listings, setListings] = useState([]);
   const [userListings, setUserListings] = useState([]);
@@ -34,16 +40,68 @@ export const ListingsProvider = ({ children }) => {
     3: "Expired",
   };
 
+  // Create a read-only provider for public RPC access when wallet not connected
+  const getReadOnlyProvider = () => {
+    // Use the existing provider if available
+    if (provider) return provider;
+
+    // Otherwise create a new read-only provider
+    // You should replace this URL with your network's RPC URL
+    return new ethers.providers.JsonRpcProvider("http://localhost:8545");
+  };
+
+  // Get read-only contract instances
+  const getReadOnlyContracts = () => {
+    const readProvider = getReadOnlyProvider();
+
+    // Contract addresses should match the ones in Web3Context.jsx
+    const TRADING_CONTRACT_ADDRESS = contractAddresses.trading;
+    const POKEMON_CARD_CONTRACT_ADDRESS = contractAddresses.pokemonCard;
+
+    // Create contract instances with ABI
+    const tradingABI = require("../contracts/Trading.json").abi;
+    const pokemonCardABI = require("../contracts/PokemonCard.json").abi;
+
+    const tradingContractRO = new ethers.Contract(
+      TRADING_CONTRACT_ADDRESS,
+      tradingABI,
+      readProvider
+    );
+
+    const pokemonCardContractRO = new ethers.Contract(
+      POKEMON_CARD_CONTRACT_ADDRESS,
+      pokemonCardABI,
+      readProvider
+    );
+
+    return { tradingContractRO, pokemonCardContractRO };
+  };
+
   // Enhanced fetchListings function for ListingsContext.jsx
   const fetchListings = async () => {
-    if (!tradingContract || !pokemonCardContract) return;
-
     setIsLoading(true);
     setError(null);
 
     try {
+      // Get contracts - use connected ones if available, otherwise use read-only
+      let tradingContractToUse = tradingContract;
+      let pokemonCardContractToUse = pokemonCardContract;
+
+      // If no connected contracts, use read-only ones
+      if (!tradingContractToUse || !pokemonCardContractToUse) {
+        const { tradingContractRO, pokemonCardContractRO } =
+          getReadOnlyContracts();
+        tradingContractToUse = tradingContractRO;
+        pokemonCardContractToUse = pokemonCardContractRO;
+      }
+
+      if (!tradingContractToUse || !pokemonCardContractToUse) {
+        throw new Error("Unable to initialize contracts");
+      }
+
       // Get next listing ID (total number of listings created)
-      const nextListingId = await tradingContract.callStatic._nextListingId();
+      const nextListingId =
+        await tradingContractToUse.callStatic._nextListingId();
       const listingsData = [];
 
       // For efficient batch processing, collect IDs of active listings first
@@ -53,7 +111,8 @@ export const ListingsProvider = ({ children }) => {
       // First pass: get listing status and collect active listings
       for (let i = 0; i < nextListingId; i++) {
         try {
-          const listing = await tradingContract.callStatic.getListingDetails(i);
+          const listing =
+            await tradingContractToUse.callStatic.getListingDetails(i);
 
           // Skip non-active listings
           if (statusMap[listing[10]] !== "Active") continue;
@@ -63,7 +122,7 @@ export const ListingsProvider = ({ children }) => {
           // If this is a Pokemon card NFT, add its token ID to our batch request list
           if (
             listing[1].toLowerCase() ===
-            pokemonCardContract?.address?.toLowerCase()
+            pokemonCardContractToUse?.address?.toLowerCase()
           ) {
             tokenIds.push(listing[2].toString());
           }
@@ -86,13 +145,13 @@ export const ListingsProvider = ({ children }) => {
       if (tokenIds.length > 0) {
         try {
           const pokemonBatch =
-            await pokemonCardContract.callStatic.batchGetPokemonDetails(
+            await pokemonCardContractToUse.callStatic.batchGetPokemonDetails(
               tokenIds
             );
 
           // Get tokenURIs for all Pokemon cards
           const tokenURIs = await Promise.all(
-            tokenIds.map((id) => pokemonCardContract.tokenURI(id))
+            tokenIds.map((id) => pokemonCardContractToUse.tokenURI(id))
           );
 
           // Create a map of token ID to Pokemon details
@@ -117,9 +176,8 @@ export const ListingsProvider = ({ children }) => {
       // Second pass: process active listings with Pokemon metadata
       for (const listingId of activeListingIds) {
         try {
-          const listing = await tradingContract.callStatic.getListingDetails(
-            listingId
-          );
+          const listing =
+            await tradingContractToUse.callStatic.getListingDetails(listingId);
 
           // Destructure listing details
           const [
@@ -259,12 +317,10 @@ export const ListingsProvider = ({ children }) => {
     };
   }, [tradingContract]);
 
-  // Fetch listings when contract is available
+  // Fetch listings on component mount
   useEffect(() => {
-    if (tradingContract) {
-      fetchListings();
-    }
-  }, [tradingContract]);
+    fetchListings();
+  }, []);
 
   // Fetch user-specific data when account or listings change
   useEffect(() => {

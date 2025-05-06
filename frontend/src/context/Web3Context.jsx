@@ -4,11 +4,11 @@ import { ethers } from "ethers";
 import TradingABI from "../contracts/Trading.json";
 import PokemonCardABI from "../contracts/PokemonCard.json";
 import { resolveIPFS } from "../utils/ipfsHelper";
+import contractAddresses from "../contract-addresses.json";
 
 // Contract addresses (would come from environment variables in a real app)
-const TRADING_CONTRACT_ADDRESS = "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
-const POKEMON_CARD_CONTRACT_ADDRESS =
-  "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+const TRADING_CONTRACT_ADDRESS = contractAddresses.trading;
+const POKEMON_CARD_CONTRACT_ADDRESS = contractAddresses.pokemonCard;
 // Create context
 const Web3Context = createContext();
 
