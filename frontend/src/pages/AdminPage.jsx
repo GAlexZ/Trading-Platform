@@ -6,11 +6,25 @@ import {
   CheckCircle,
   Trash2,
   Shield,
+  Settings,
+  DollarSign,
+  Pause,
+  Play,
+  Users,
+  Edit,
 } from "lucide-react";
 import { useWeb3 } from "../context/Web3Context";
 import ContractAddresses from "../components/ContractAddresses";
 import { resolveIPFS, createPlaceholder } from "../utils/ipfsHelper";
-import { LinkIcon, RefreshCw, ImageIcon } from "lucide-react";
+import { ethers } from "ethers";
+import LoadingSpinner from "../components/LoadingSpinner";
+
+// Tab options
+const TABS = {
+  MINT: "mint",
+  CONTRACT: "contract",
+  WITHDRAW: "withdraw",
+};
 
 const AdminPage = () => {
   const navigate = useNavigate();
@@ -21,13 +35,24 @@ const AdminPage = () => {
     pokemonCardContract,
     tradingContract,
     chainId,
+    provider,
+    signer,
   } = useWeb3();
 
   // State to track if current user is the contract owner
   const [isOwner, setIsOwner] = useState(false);
   const [isCheckingOwner, setIsCheckingOwner] = useState(true);
+  const [activeTab, setActiveTab] = useState(TABS.MINT);
 
-  // Form state
+  // State for contract management
+  const [isPaused, setIsPaused] = useState(false);
+  const [platformFee, setPlatformFee] = useState("1.00");
+  const [feeRecipient, setFeeRecipient] = useState("");
+  const [newFeeRecipient, setNewFeeRecipient] = useState("");
+  const [withdrawableBalance, setWithdrawableBalance] = useState("0.0");
+  const [loadingContractInfo, setLoadingContractInfo] = useState(true);
+
+  // Form state for minting (from existing AdminPage)
   const [formData, setFormData] = useState({
     name: "",
     generation: 1,
@@ -49,6 +74,20 @@ const AdminPage = () => {
   const [cardToBurn, setCardToBurn] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const [isTestingIPFS, setIsTestingIPFS] = useState(false);
+
+  // Pokemon types for selection
+  const pokemonTypes = [
+    "Fire",
+    "Water",
+    "Electric",
+    "Grass",
+    "Psychic",
+    "Fighting",
+    "Normal",
+    "Dragon",
+    "Dark",
+    "Fairy",
+  ];
 
   // Check if current user is the contract owner
   useEffect(() => {
@@ -77,6 +116,42 @@ const AdminPage = () => {
       navigate("/marketplace");
     }
   }, [isOwner, isCheckingOwner, navigate]);
+
+  // Fetch contract information
+  useEffect(() => {
+    const fetchContractInfo = async () => {
+      if (!tradingContract || !account) return;
+
+      setLoadingContractInfo(true);
+      try {
+        // Get contract status
+        const paused = await tradingContract.paused();
+        setIsPaused(paused);
+
+        // Get platform fee
+        const fee = await tradingContract.platformFeePercentage();
+        setPlatformFee((Number(fee) / 100).toFixed(2)); // Convert from basis points to percentage
+
+        // Get fee recipient
+        const recipient = await tradingContract.feeRecipient();
+        setFeeRecipient(recipient);
+        setNewFeeRecipient(recipient);
+
+        // Get withdrawable balance
+        if (provider) {
+          const balance = await tradingContract.pendingWithdrawals(account);
+          setWithdrawableBalance(ethers.utils.formatEther(balance));
+        }
+      } catch (error) {
+        console.error("Error fetching contract info:", error);
+        setErrorMessage("Failed to fetch contract information");
+      } finally {
+        setLoadingContractInfo(false);
+      }
+    };
+
+    fetchContractInfo();
+  }, [tradingContract, account, provider]);
 
   // Handle IPFS URI change and update preview
   const handleIPFSChange = (e) => {
@@ -108,20 +183,6 @@ const AdminPage = () => {
       setIsTestingIPFS(false);
     }
   };
-
-  // Pokemon types for selection
-  const pokemonTypes = [
-    "Fire",
-    "Water",
-    "Electric",
-    "Grass",
-    "Psychic",
-    "Fighting",
-    "Normal",
-    "Dragon",
-    "Dark",
-    "Fairy",
-  ];
 
   // Fetch user's minted Pokemon cards
   const fetchMintedCards = async () => {
@@ -306,6 +367,132 @@ const AdminPage = () => {
     }
   };
 
+  // NEW ADMIN FUNCTIONS
+
+  // Toggle pause state
+  const togglePause = async () => {
+    if (!tradingContract) return;
+
+    setIsProcessing(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      let tx;
+      if (isPaused) {
+        tx = await tradingContract.unpause();
+      } else {
+        tx = await tradingContract.pause();
+      }
+
+      await tx.wait();
+
+      setIsPaused(!isPaused);
+      setSuccessMessage(
+        `Contract has been ${isPaused ? "unpaused" : "paused"} successfully!`
+      );
+    } catch (error) {
+      console.error(
+        `Error ${isPaused ? "unpausing" : "pausing"} contract:`,
+        error
+      );
+      setErrorMessage(
+        error.message || `Failed to ${isPaused ? "unpause" : "pause"} contract`
+      );
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Update platform fee
+  const updatePlatformFee = async () => {
+    if (!tradingContract) return;
+
+    setIsProcessing(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      // Convert percentage to basis points (1% = 100 basis points)
+      const feeInBasisPoints = Math.round(parseFloat(platformFee) * 100);
+
+      if (
+        isNaN(feeInBasisPoints) ||
+        feeInBasisPoints < 0 ||
+        feeInBasisPoints > 1000
+      ) {
+        throw new Error("Fee must be between 0% and 10%");
+      }
+
+      const tx = await tradingContract.setPlatformFeePercentage(
+        feeInBasisPoints
+      );
+      await tx.wait();
+
+      setSuccessMessage(
+        `Platform fee updated to ${platformFee}% successfully!`
+      );
+    } catch (error) {
+      console.error("Error updating platform fee:", error);
+      setErrorMessage(error.message || "Failed to update platform fee");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Update fee recipient
+  const updateFeeRecipient = async () => {
+    if (!tradingContract || !newFeeRecipient) return;
+
+    setIsProcessing(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      // Validate address
+      if (!ethers.utils.isAddress(newFeeRecipient)) {
+        throw new Error("Invalid Ethereum address");
+      }
+
+      const tx = await tradingContract.setFeeRecipient(newFeeRecipient);
+      await tx.wait();
+
+      setFeeRecipient(newFeeRecipient);
+      setSuccessMessage(
+        `Fee recipient updated to ${newFeeRecipient} successfully!`
+      );
+    } catch (error) {
+      console.error("Error updating fee recipient:", error);
+      setErrorMessage(error.message || "Failed to update fee recipient");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Withdraw funds
+  const withdrawFunds = async () => {
+    if (!tradingContract) return;
+
+    setIsProcessing(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const tx = await tradingContract.withdraw();
+      await tx.wait();
+
+      setWithdrawableBalance("0.0");
+      setSuccessMessage(
+        `Successfully withdrew ${withdrawableBalance} ETH to your wallet!`
+      );
+    } catch (error) {
+      console.error("Error withdrawing funds:", error);
+      setErrorMessage(error.message || "Failed to withdraw funds");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // If still checking owner status, show loading
   if (isCheckingOwner) {
     return (
@@ -389,9 +576,21 @@ const AdminPage = () => {
 
         {/* Main content */}
         <div className="p-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">
-            Admin Dashboard - Mint & Burn Pokemon Cards
-          </h1>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">
+              Admin Dashboard{" "}
+              <span className="text-indigo-600">• Contract Owner</span>
+            </h1>
+
+            <div className="flex items-center">
+              <Shield className="h-5 w-5 text-indigo-600 mr-2" />
+              <span className="text-sm text-gray-600">
+                {`${account.substring(0, 6)}...${account.substring(
+                  account.length - 4
+                )}`}
+              </span>
+            </div>
+          </div>
 
           {/* Contract Addresses Display */}
           <ContractAddresses
@@ -430,323 +629,626 @@ const AdminPage = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Mint Form */}
-            <div>
-              <h2 className="text-lg font-medium text-gray-900 mb-4">
-                Mint New Pokemon Card
-              </h2>
+          {/* Tab navigation */}
+          <div className="border-b border-gray-200 mb-6">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab(TABS.MINT)}
+                className={`${
+                  activeTab === TABS.MINT
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+              >
+                <Shield className="h-5 w-5 mr-2" />
+                Mint & Burn Pokemon
+              </button>
+              <button
+                onClick={() => setActiveTab(TABS.CONTRACT)}
+                className={`${
+                  activeTab === TABS.CONTRACT
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+              >
+                <Settings className="h-5 w-5 mr-2" />
+                Contract Management
+              </button>
+              <button
+                onClick={() => setActiveTab(TABS.WITHDRAW)}
+                className={`${
+                  activeTab === TABS.WITHDRAW
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+              >
+                <DollarSign className="h-5 w-5 mr-2" />
+                Withdrawals
+              </button>
+            </nav>
+          </div>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Pokemon Name */}
-                <div>
-                  <label
-                    htmlFor="name"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Pokemon Name
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                    placeholder="Pikachu"
-                    required
-                  />
-                </div>
+          {/* Tab content */}
+          {activeTab === TABS.MINT && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Mint Form */}
+              <div>
+                <h2 className="text-lg font-medium text-gray-900 mb-4">
+                  Mint New Pokemon Card
+                </h2>
 
-                {/* Generation */}
-                <div>
-                  <label
-                    htmlFor="generation"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Generation
-                  </label>
-                  <select
-                    id="generation"
-                    name="generation"
-                    value={formData.generation}
-                    onChange={handleChange}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((gen) => (
-                      <option key={gen} value={gen}>
-                        Gen {gen}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Pokemon Type */}
-                <div>
-                  <label
-                    htmlFor="pokemonType"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Type
-                  </label>
-                  <select
-                    id="pokemonType"
-                    name="pokemonType"
-                    value={formData.pokemonType}
-                    onChange={handleChange}
-                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                  >
-                    {pokemonTypes.map((type) => (
-                      <option key={type} value={type}>
-                        {type}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Power */}
-                <div>
-                  <label
-                    htmlFor="power"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Power
-                  </label>
-                  <input
-                    type="number"
-                    id="power"
-                    name="power"
-                    min="1"
-                    max="999"
-                    value={formData.power}
-                    onChange={handleChange}
-                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                  />
-                </div>
-
-                {/* Rarity */}
-                <div>
-                  <label
-                    htmlFor="rarity"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Rarity (1-5 stars)
-                  </label>
-                  <input
-                    type="range"
-                    id="rarity"
-                    name="rarity"
-                    min="1"
-                    max="5"
-                    value={formData.rarity}
-                    onChange={handleChange}
-                    className="mt-1 block w-full"
-                  />
-                  <div className="text-center font-medium">
-                    {"⭐".repeat(formData.rarity)}
-                  </div>
-                </div>
-
-                {/* Is Shiny */}
-                <div className="flex items-center">
-                  <input
-                    id="isShiny"
-                    name="isShiny"
-                    type="checkbox"
-                    checked={formData.isShiny}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                  />
-                  <label
-                    htmlFor="isShiny"
-                    className="ml-2 block text-sm text-gray-700"
-                  >
-                    Shiny Pokemon
-                  </label>
-                </div>
-
-                {/* IPFS Metadata URI with Preview */}
-                <div>
-                  <label
-                    htmlFor="ipfsMetadataURI"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    IPFS Metadata URI
-                  </label>
-                  <div className="mt-1 flex items-center">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Pokemon Name */}
+                  <div>
+                    <label
+                      htmlFor="name"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Pokemon Name
+                    </label>
                     <input
                       type="text"
-                      id="ipfsMetadataURI"
-                      name="ipfsMetadataURI"
-                      value={formData.ipfsMetadataURI}
-                      onChange={handleIPFSChange}
-                      className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-                      placeholder="ipfs://bafybeigz5x3655zd4qll7lcdbxoyjyoqj4tizvzjajtfm7f2aau2svdlsa"
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                      placeholder="Pikachu"
+                      required
                     />
-                    <button
-                      type="button"
-                      onClick={testIPFSResolution}
-                      disabled={isTestingIPFS}
-                      className="ml-2 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                    >
-                      {isTestingIPFS ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <LinkIcon className="h-4 w-4" />
-                      )}
-                    </button>
                   </div>
 
-                  {/* Image Preview */}
-                  {imagePreview && (
-                    <div className="mt-3 border rounded-md p-2">
-                      <p className="text-xs text-gray-500 mb-1">
-                        Image Preview:
-                      </p>
-                      <div className="flex items-center justify-center border border-gray-200 rounded-md p-2 bg-gray-50 h-40">
-                        <img
-                          src={imagePreview}
-                          alt="IPFS Preview"
-                          className="max-h-full max-w-full object-contain"
-                          onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = createPlaceholder(formData.name);
-                          }}
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1 break-all">
-                        Resolved URL: {imagePreview}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Submit Button */}
-                <div>
-                  <button
-                    type="submit"
-                    disabled={isProcessing}
-                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                  >
-                    {isProcessing ? "Processing..." : "Mint Pokemon Card"}
-                  </button>
-                </div>
-              </form>
-            </div>
-
-            {/* Recently Minted Cards with Burn Option */}
-            <div>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium text-gray-900">
-                  Your Pokemon Cards
-                </h2>
-                <button
-                  onClick={fetchMintedCards}
-                  disabled={isLoadingCards}
-                  className="text-sm text-indigo-600 hover:text-indigo-800"
-                >
-                  {isLoadingCards ? "Loading..." : "Refresh"}
-                </button>
-              </div>
-
-              {isLoadingCards ? (
-                <div className="flex justify-center items-center h-40">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
-                </div>
-              ) : mintedCards.length === 0 ? (
-                <div className="bg-gray-50 rounded-md p-4 text-center">
-                  <p className="text-gray-500">No cards found</p>
-                </div>
-              ) : (
-                <div className="space-y-4 max-h-[500px] overflow-y-auto">
-                  {mintedCards.map((card) => (
-                    <div
-                      key={card.id}
-                      className="border rounded-md p-4 hover:shadow-sm"
+                  {/* Generation */}
+                  <div>
+                    <label
+                      htmlFor="generation"
+                      className="block text-sm font-medium text-gray-700"
                     >
-                      <div className="flex md:flex-row flex-col gap-3">
-                        {/* Card Image */}
-                        <div className="w-24 h-32 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                      Generation
+                    </label>
+                    <select
+                      id="generation"
+                      name="generation"
+                      value={formData.generation}
+                      onChange={handleChange}
+                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((gen) => (
+                        <option key={gen} value={gen}>
+                          Gen {gen}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Pokemon Type */}
+                  <div>
+                    <label
+                      htmlFor="pokemonType"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Type
+                    </label>
+                    <select
+                      id="pokemonType"
+                      name="pokemonType"
+                      value={formData.pokemonType}
+                      onChange={handleChange}
+                      className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                    >
+                      {pokemonTypes.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Power */}
+                  <div>
+                    <label
+                      htmlFor="power"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Power
+                    </label>
+                    <input
+                      type="number"
+                      id="power"
+                      name="power"
+                      min="1"
+                      max="999"
+                      value={formData.power}
+                      onChange={handleChange}
+                      className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Rarity */}
+                  <div>
+                    <label
+                      htmlFor="rarity"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      Rarity (1-5 stars)
+                    </label>
+                    <input
+                      type="range"
+                      id="rarity"
+                      name="rarity"
+                      min="1"
+                      max="5"
+                      value={formData.rarity}
+                      onChange={handleChange}
+                      className="mt-1 block w-full"
+                    />
+                    <div className="text-center font-medium">
+                      {"⭐".repeat(formData.rarity)}
+                    </div>
+                  </div>
+
+                  {/* Is Shiny */}
+                  <div className="flex items-center">
+                    <input
+                      id="isShiny"
+                      name="isShiny"
+                      type="checkbox"
+                      checked={formData.isShiny}
+                      onChange={handleChange}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                    />
+                    <label
+                      htmlFor="isShiny"
+                      className="ml-2 block text-sm text-gray-700"
+                    >
+                      Shiny Pokemon
+                    </label>
+                  </div>
+
+                  {/* IPFS Metadata URI with Preview */}
+                  <div>
+                    <label
+                      htmlFor="ipfsMetadataURI"
+                      className="block text-sm font-medium text-gray-700"
+                    >
+                      IPFS Metadata URI
+                    </label>
+                    <div className="mt-1 flex items-center">
+                      <input
+                        type="text"
+                        id="ipfsMetadataURI"
+                        name="ipfsMetadataURI"
+                        value={formData.ipfsMetadataURI}
+                        onChange={handleIPFSChange}
+                        className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="ipfs://bafybeigz5x3655zd4qll7lcdbxoyjyoqj4tizvzjajtfm7f2aau2svdlsa"
+                      />
+                      <button
+                        type="button"
+                        onClick={testIPFSResolution}
+                        disabled={isTestingIPFS}
+                        className="ml-2 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                      >
+                        Test
+                      </button>
+                    </div>
+
+                    {/* Image Preview */}
+                    {imagePreview && (
+                      <div className="mt-3 border rounded-md p-2">
+                        <p className="text-xs text-gray-500 mb-1">
+                          Image Preview:
+                        </p>
+                        <div className="flex items-center justify-center border border-gray-200 rounded-md p-2 bg-gray-50 h-40">
                           <img
-                            src={card.image}
-                            alt={card.name}
-                            className="w-full h-full object-cover"
+                            src={imagePreview}
+                            alt="IPFS Preview"
+                            className="max-h-full max-w-full object-contain"
                             onError={(e) => {
                               e.target.onerror = null;
-                              e.target.src = createPlaceholder(card.name);
+                              e.target.src = createPlaceholder(formData.name);
                             }}
                           />
                         </div>
+                      </div>
+                    )}
+                  </div>
 
-                        {/* Card Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start flex-wrap">
-                            <div className="mr-2">
-                              <h3 className="font-medium text-gray-900">
-                                {card.name}
-                              </h3>
-                              <p className="text-sm text-gray-500">
-                                Token ID: {card.id}
-                              </p>
-                              {card.tokenURI && (
-                                <p className="text-xs text-gray-400 truncate max-w-full">
-                                  URI: {card.tokenURI}
+                  {/* Submit Button */}
+                  <div>
+                    <button
+                      type="submit"
+                      disabled={isProcessing}
+                      className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+                    >
+                      {isProcessing ? "Processing..." : "Mint Pokemon Card"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Recently Minted Cards with Burn Option */}
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-medium text-gray-900">
+                    Your Pokemon Cards
+                  </h2>
+                  <button
+                    onClick={fetchMintedCards}
+                    disabled={isLoadingCards}
+                    className="text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    {isLoadingCards ? "Loading..." : "Refresh"}
+                  </button>
+                </div>
+
+                {isLoadingCards ? (
+                  <div className="flex justify-center items-center h-40">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500"></div>
+                  </div>
+                ) : mintedCards.length === 0 ? (
+                  <div className="bg-gray-50 rounded-md p-4 text-center">
+                    <p className="text-gray-500">No cards found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-h-[500px] overflow-y-auto">
+                    {mintedCards.map((card) => (
+                      <div
+                        key={card.id}
+                        className="border rounded-md p-4 hover:shadow-sm"
+                      >
+                        <div className="flex md:flex-row flex-col gap-3">
+                          {/* Card Image */}
+                          <div className="w-24 h-32 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
+                            <img
+                              src={card.image}
+                              alt={card.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = createPlaceholder(card.name);
+                              }}
+                            />
+                          </div>
+
+                          {/* Card Info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex justify-between items-start flex-wrap">
+                              <div className="mr-2">
+                                <h3 className="font-medium text-gray-900">
+                                  {card.name}
+                                </h3>
+                                <p className="text-sm text-gray-500">
+                                  Token ID: {card.id}
                                 </p>
-                              )}
+                                {card.tokenURI && (
+                                  <p className="text-xs text-gray-400 truncate max-w-full">
+                                    URI: {card.tokenURI}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center flex-shrink-0 mt-1 md:mt-0">
+                                {card.isShiny && (
+                                  <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded mr-2 whitespace-nowrap">
+                                    ✨ Shiny
+                                  </span>
+                                )}
+                                <button
+                                  onClick={() => handleBurnClick(card)}
+                                  className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded flex-shrink-0"
+                                  title="Burn NFT"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex items-center flex-shrink-0 mt-1 md:mt-0">
-                              {card.isShiny && (
-                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded mr-2 whitespace-nowrap">
-                                  ✨ Shiny
+                            <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <span className="text-gray-500">Type:</span>{" "}
+                                <span className="text-gray-900">
+                                  {card.type}
                                 </span>
-                              )}
-                              <button
-                                onClick={() => handleBurnClick(card)}
-                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded flex-shrink-0"
-                                title="Burn NFT"
-                              >
-                                <Trash2 size={16} />
-                              </button>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Gen:</span>{" "}
+                                <span className="text-gray-900">
+                                  {card.generation}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Power:</span>{" "}
+                                <span className="text-gray-900">
+                                  {card.power}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Rarity:</span>{" "}
+                                <span className="text-gray-900">
+                                  {"⭐".repeat(card.rarity)}
+                                </span>
+                              </div>
                             </div>
+                            {card.timestamp && (
+                              <div className="mt-2 text-xs text-gray-400">
+                                Minted:{" "}
+                                {new Date(card.timestamp).toLocaleString()}
+                              </div>
+                            )}
                           </div>
-                          <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-                            <div>
-                              <span className="text-gray-500">Type:</span>{" "}
-                              <span className="text-gray-900">{card.type}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Gen:</span>{" "}
-                              <span className="text-gray-900">
-                                {card.generation}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Power:</span>{" "}
-                              <span className="text-gray-900">
-                                {card.power}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Rarity:</span>{" "}
-                              <span className="text-gray-900">
-                                {"⭐".repeat(card.rarity)}
-                              </span>
-                            </div>
-                          </div>
-                          {card.timestamp && (
-                            <div className="mt-2 text-xs text-gray-400">
-                              Minted:{" "}
-                              {new Date(card.timestamp).toLocaleString()}
-                            </div>
-                          )}
                         </div>
                       </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === TABS.CONTRACT && (
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 mb-6">
+                Contract Management
+              </h2>
+
+              {loadingContractInfo ? (
+                <div className="flex justify-center items-center py-8">
+                  <LoadingSpinner size="large" color="indigo" />
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {/* Pause/Unpause Contract */}
+                  <div className="bg-white shadow sm:rounded-lg">
+                    <div className="px-4 py-5 sm:p-6">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900">
+                        Contract Status
+                      </h3>
+                      <div className="mt-2 max-w-xl text-sm text-gray-500">
+                        <p>
+                          When paused, the contract will not allow new listings
+                          or purchases. This is useful for emergency situations
+                          or maintenance.
+                        </p>
+                      </div>
+                      <div className="mt-5">
+                        <button
+                          onClick={togglePause}
+                          disabled={isProcessing}
+                          className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                            isPaused
+                              ? "bg-green-600 hover:bg-green-700"
+                              : "bg-red-600 hover:bg-red-700"
+                          } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
+                        >
+                          {isProcessing ? (
+                            <LoadingSpinner size="small" color="white" />
+                          ) : isPaused ? (
+                            <>
+                              <Play className="mr-2 h-4 w-4" />
+                              Unpause Contract
+                            </>
+                          ) : (
+                            <>
+                              <Pause className="mr-2 h-4 w-4" />
+                              Pause Contract
+                            </>
+                          )}
+                        </button>
+                        <span className="ml-3 inline-flex items-center px-3 py-2 rounded-md text-sm font-medium text-gray-800 bg-gray-100">
+                          Current Status:{" "}
+                          <span
+                            className={`ml-1 font-semibold ${
+                              isPaused ? "text-red-600" : "text-green-600"
+                            }`}
+                          >
+                            {isPaused ? "PAUSED" : "ACTIVE"}
+                          </span>
+                        </span>
+                      </div>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Platform Fee */}
+                  <div className="bg-white shadow sm:rounded-lg">
+                    <div className="px-4 py-5 sm:p-6">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900">
+                        Platform Fee
+                      </h3>
+                      <div className="mt-2 max-w-xl text-sm text-gray-500">
+                        <p>
+                          Set the platform fee percentage for all trades (1.00 =
+                          1%). This fee is collected on each sale and sent to
+                          the fee recipient.
+                        </p>
+                      </div>
+                      <div className="mt-5 sm:flex sm:items-end">
+                        <div className="w-full sm:max-w-xs">
+                          <label htmlFor="platformFee" className="sr-only">
+                            Platform Fee
+                          </label>
+                          <div className="relative rounded-md shadow-sm">
+                            <input
+                              type="number"
+                              name="platformFee"
+                              id="platformFee"
+                              className="block w-full pr-10 border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                              placeholder="1.00"
+                              step="0.01"
+                              min="0"
+                              max="10"
+                              value={platformFee}
+                              onChange={(e) => setPlatformFee(e.target.value)}
+                            />
+                            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                              <span className="text-gray-500 sm:text-sm">
+                                %
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={updatePlatformFee}
+                          disabled={isProcessing}
+                          className="mt-3 w-full inline-flex items-center justify-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                          {isProcessing ? (
+                            <LoadingSpinner size="small" color="white" />
+                          ) : (
+                            "Update Fee"
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fee Recipient */}
+                  <div className="bg-white shadow sm:rounded-lg">
+                    <div className="px-4 py-5 sm:p-6">
+                      <h3 className="text-lg leading-6 font-medium text-gray-900">
+                        Fee Recipient
+                      </h3>
+                      <div className="mt-2 max-w-xl text-sm text-gray-500">
+                        <p>
+                          Set the address that will receive all platform fees
+                          generated from trades.
+                        </p>
+                      </div>
+                      <div className="mt-2 flex items-center">
+                        <span className="text-sm font-medium text-gray-900">
+                          Current recipient:
+                        </span>
+                        <span className="ml-2 text-sm text-gray-500">
+                          {feeRecipient}
+                        </span>
+                      </div>
+                      <div className="mt-5 sm:flex sm:items-end">
+                        <div className="w-full">
+                          <label htmlFor="newFeeRecipient" className="sr-only">
+                            New Fee Recipient
+                          </label>
+                          <input
+                            type="text"
+                            name="newFeeRecipient"
+                            id="newFeeRecipient"
+                            className="block w-full border-gray-300 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                            placeholder="0x..."
+                            value={newFeeRecipient}
+                            onChange={(e) => setNewFeeRecipient(e.target.value)}
+                          />
+                        </div>
+                        <button
+                          onClick={updateFeeRecipient}
+                          disabled={isProcessing}
+                          className="mt-3 w-full inline-flex items-center justify-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                        >
+                          {isProcessing ? (
+                            <LoadingSpinner size="small" color="white" />
+                          ) : (
+                            "Update Recipient"
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-          </div>
+          )}
+
+          {activeTab === TABS.WITHDRAW && (
+            <div>
+              <h2 className="text-lg font-medium text-gray-900 mb-6">
+                Withdraw Platform Fees
+              </h2>
+
+              {loadingContractInfo ? (
+                <div className="flex justify-center items-center py-8">
+                  <LoadingSpinner size="large" color="indigo" />
+                </div>
+              ) : (
+                <div className="bg-white shadow sm:rounded-lg">
+                  <div className="px-4 py-5 sm:p-6">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900">
+                      Available Balance
+                    </h3>
+                    <div className="mt-2 max-w-xl text-sm text-gray-500">
+                      <p>
+                        Withdraw ETH that you've earned as platform fees or from
+                        sales of your NFTs.
+                      </p>
+                    </div>
+                    <div className="mt-5 border-t border-gray-200 pt-5">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="text-base font-medium text-gray-900">
+                            Your balance
+                          </h4>
+                          <div className="flex items-center mt-1">
+                            <div className="text-2xl font-bold text-indigo-600">
+                              {withdrawableBalance}
+                            </div>
+                            <div className="ml-2 text-sm text-gray-500">
+                              ETH
+                            </div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={withdrawFunds}
+                          disabled={
+                            isProcessing || parseFloat(withdrawableBalance) <= 0
+                          }
+                          className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
+                            parseFloat(withdrawableBalance) > 0
+                              ? "bg-indigo-600 hover:bg-indigo-700"
+                              : "bg-gray-400 cursor-not-allowed"
+                          } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
+                        >
+                          {isProcessing ? (
+                            <LoadingSpinner size="small" color="white" />
+                          ) : (
+                            <>
+                              <DollarSign className="mr-2 h-4 w-4" />
+                              Withdraw Funds
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      {parseFloat(withdrawableBalance) <= 0 && (
+                        <div className="mt-4 p-3 bg-gray-50 rounded-md">
+                          <p className="text-sm text-gray-500">
+                            You don't have any funds available to withdraw at
+                            the moment. Funds will appear here after NFT sales
+                            or when platform fees are collected.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-8 bg-indigo-50 p-4 rounded-md shadow-sm">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <DollarSign className="h-5 w-5 text-indigo-500" />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-indigo-800">
+                      About Withdrawals
+                    </h3>
+                    <div className="mt-2 text-sm text-indigo-700">
+                      <p>
+                        Your withdrawable balance includes platform fees (if
+                        you're the fee recipient) and proceeds from your NFT
+                        sales. The trading contract uses a secure withdrawal
+                        pattern to ensure your funds are safe.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
