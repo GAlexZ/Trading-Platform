@@ -8,11 +8,12 @@ import {
   Info,
   AlertTriangle,
   CheckCircle,
+  ShoppingBag,
+  ExternalLink,
 } from "lucide-react";
 import { useListings } from "../context/ListingsContext";
 import { useWeb3 } from "../context/Web3Context";
 import { resolveIPFS, createPlaceholder } from "../utils/ipfsHelper";
-import { ExternalLink } from "lucide-react";
 import IPFSImage from "../components/IPFSImage";
 
 const NFTDetailView = () => {
@@ -38,6 +39,9 @@ const NFTDetailView = () => {
     seconds: 0,
     expired: false,
   });
+  // Track if purchase was successful
+  const [purchaseSuccessful, setPurchaseSuccessful] = useState(false);
+  const [purchaseDetails, setPurchaseDetails] = useState(null);
 
   // Get image URL with proper IPFS handling
   const getImageUrl = () => {
@@ -289,6 +293,19 @@ const NFTDetailView = () => {
             ? getCurrentPrice()
             : listing.price;
         result = await buyNow(listingId, price);
+
+        // If purchase was successful, store details
+        if (result.success) {
+          setPurchaseSuccessful(true);
+          setPurchaseDetails({
+            name: listing.name,
+            price: price,
+            saleType: listing.saleType,
+            image: listing.image || listing.tokenURI,
+            seller: listing.seller,
+            tokenId: listing.tokenId,
+          });
+        }
       }
 
       if (result.success) {
@@ -330,6 +347,85 @@ const NFTDetailView = () => {
       setIsProcessing(false);
     }
   };
+
+  // If purchase was successful, show the purchase summary
+  if (purchaseSuccessful && purchaseDetails) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+          <div className="p-4 border-b">
+            <button
+              onClick={handleBack}
+              className="inline-flex items-center text-gray-700 hover:text-gray-900"
+            >
+              <ArrowLeft className="h-5 w-5 mr-1" />
+              <span>Back to marketplace</span>
+            </button>
+          </div>
+
+          <div className="p-6 text-center">
+            <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-green-100 mb-4">
+              <CheckCircle className="h-10 w-10 text-green-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Purchase Successful!
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Congratulations! You have successfully purchased this NFT.
+            </p>
+
+            <div className="max-w-md mx-auto mb-8 bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center justify-center mb-4">
+                <IPFSImage
+                  uri={purchaseDetails.image}
+                  alt={purchaseDetails.name}
+                  fallbackText={purchaseDetails.name}
+                  containerStyle={{ height: "200px", width: "200px" }}
+                  className="card-grid"
+                />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                {purchaseDetails.name}
+              </h3>
+              <div className="mb-4">
+                <span className="block text-sm text-gray-500">Price Paid:</span>
+                <span className="text-lg font-medium text-gray-900">
+                  {formatPrice(purchaseDetails.price)}
+                </span>
+              </div>
+              <div className="mb-2">
+                <span className="block text-sm text-gray-500">Token ID:</span>
+                <span className="text-gray-900">{purchaseDetails.tokenId}</span>
+              </div>
+              <div className="mb-2">
+                <span className="block text-sm text-gray-500">
+                  Purchased From:
+                </span>
+                <span className="text-gray-900 break-all">
+                  {purchaseDetails.seller}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-center space-x-4">
+              <button
+                onClick={handleBack}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Continue Shopping
+              </button>
+              <button
+                onClick={() => navigate("/collection")}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                View My Collection
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // If listing not found
   if (!listing) {
