@@ -210,6 +210,12 @@ Trading
 
 ## Frontend Architecture
 
+### Key features
+
+- Mobile-Responsive Design
+- Advanced Filtering
+- Wallet connection
+
 The frontend is organized as follows:
 
 src/
@@ -251,7 +257,7 @@ Reusable component that displays a Pokemon card with its details, including:
 
 #### IPFSImage
 
-Specialized component for handling IPFS image loading:
+Helper Component for handling IPFS image loading:
 
 - IPFS URI resolution to HTTP URL
 - Loading states
@@ -312,3 +318,8 @@ Specialized component for handling IPFS image loading:
 ```bash
 npx hardhat test
 ```
+
+### Which AI tools where used for development:
+
+- For the frontend: claude.ai with Claude 3.7 Sonnet
+- For debuggin: ChatGPT with GPT-4o or o4-mini-high
