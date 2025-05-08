@@ -1,7 +1,158 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Search, Menu, X, Wallet, Shield, Collection } from "lucide-react";
+import {
+  Search,
+  Menu,
+  X,
+  Wallet,
+  Shield,
+  Collection,
+  DollarSign,
+  ExternalLink,
+  LogOut,
+} from "lucide-react";
 import { useWeb3 } from "../context/Web3Context";
+import WalletDropdown from "./WalletDropdown";
+import LoadingSpinner from "./LoadingSpinner";
+import { ethers } from "ethers";
+
+// Mobile version of the wallet options
+const MobileWalletOptions = ({ onClose }) => {
+  const { account, disconnectWallet, tradingContract } = useWeb3();
+  const [pendingBalance, setPendingBalance] = useState("0.0");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  // Fetch pending balance
+  const fetchPendingBalance = async () => {
+    if (!tradingContract || !account) return;
+
+    try {
+      setIsLoading(true);
+      const balance = await tradingContract.pendingWithdrawals(account);
+      setPendingBalance(balance ? ethers.utils.formatEther(balance) : "0.0");
+    } catch (error) {
+      console.error("Error fetching pending balance:", error);
+      setError("Failed to fetch your balance");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle withdraw funds
+  const handleWithdraw = async () => {
+    if (!tradingContract || parseFloat(pendingBalance) <= 0) return;
+
+    try {
+      setIsWithdrawing(true);
+      setError("");
+      const tx = await tradingContract.withdraw();
+      await tx.wait();
+
+      setPendingBalance("0.0");
+      setSuccess("Funds successfully withdrawn!");
+
+      // Clear success message after 3 seconds
+      setTimeout(() => {
+        setSuccess("");
+      }, 3000);
+    } catch (error) {
+      console.error("Error withdrawing funds:", error);
+      setError("Failed to withdraw funds");
+    } finally {
+      setIsWithdrawing(false);
+    }
+  };
+
+  // Fetch balance on mount
+  useEffect(() => {
+    fetchPendingBalance();
+  }, [account, tradingContract]);
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <div className="flex justify-between items-center mb-2">
+          <p className="text-sm font-medium text-gray-900">Pending Balance</p>
+          {isLoading ? (
+            <LoadingSpinner size="small" color="indigo" />
+          ) : (
+            <button
+              onClick={fetchPendingBalance}
+              className="text-xs text-indigo-600"
+            >
+              Refresh
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center mb-2">
+          <DollarSign className="h-4 w-4 text-gray-500 mr-1" />
+          <p className="text-lg font-semibold text-gray-900">
+            {pendingBalance} ETH
+          </p>
+        </div>
+
+        {parseFloat(pendingBalance) > 0 && (
+          <button
+            onClick={handleWithdraw}
+            disabled={isWithdrawing}
+            className="w-full inline-flex items-center justify-center px-3 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+          >
+            {isWithdrawing ? (
+              <>
+                <LoadingSpinner size="small" color="white" />
+                <span className="ml-2">Processing...</span>
+              </>
+            ) : (
+              <>
+                <DollarSign className="h-4 w-4 mr-1" />
+                Withdraw Funds
+              </>
+            )}
+          </button>
+        )}
+
+        {error && (
+          <div className="mt-2 p-2 text-xs text-red-800 bg-red-50 rounded-md">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mt-2 p-2 text-xs text-green-800 bg-green-50 rounded-md">
+            {success}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-gray-200 pt-3 flex flex-col space-y-2">
+        <a
+          href={`https://etherscan.io/address/${account}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
+        >
+          <ExternalLink className="h-4 w-4 mr-2" />
+          View on Etherscan
+        </a>
+
+        <button
+          onClick={() => {
+            disconnectWallet();
+            if (onClose) onClose();
+          }}
+          className="flex items-center px-2 py-1.5 text-sm text-red-700 hover:bg-red-50 rounded-md"
+        >
+          <LogOut className="h-4 w-4 mr-2" />
+          Disconnect Wallet
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const Navbar = () => {
   const location = useLocation();
@@ -119,13 +270,10 @@ const Navbar = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </form>
+
+                {/* Replace the account display with WalletDropdown when connected */}
                 {account ? (
-                  <div className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                    {`${account.substring(0, 6)}...${account.substring(
-                      account.length - 4
-                    )}`}
-                  </div>
+                  <WalletDropdown />
                 ) : (
                   <button
                     onClick={connectWallet}
@@ -274,6 +422,17 @@ const Navbar = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </form>
+
+              {/* Mobile wallet options */}
+              {account && (
+                <div className="mt-3 border-t border-gray-200 pt-3">
+                  <div className="block px-3 py-2 rounded-md">
+                    <MobileWalletOptions
+                      onClose={() => setMobileMenuOpen(false)}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

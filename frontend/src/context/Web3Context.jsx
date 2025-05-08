@@ -5,12 +5,39 @@ import TradingABI from "../contracts/Trading.json";
 import PokemonCardABI from "../contracts/PokemonCard.json";
 import { resolveIPFS } from "../utils/ipfsHelper";
 import contractAddresses from "../contract-addresses.json";
+import * as ethersLib from "ethers";
 
 // Contract addresses (would come from environment variables in a real app)
 const TRADING_CONTRACT_ADDRESS = contractAddresses.trading;
 const POKEMON_CARD_CONTRACT_ADDRESS = contractAddresses.pokemonCard;
 // Create context
 const Web3Context = createContext();
+// Make ethers available globally for components that need it
+if (!window.ethers) {
+  window.ethers = ethersLib;
+}
+
+// Format ETH helper function
+export const formatEther = (value) => {
+  if (!value) return "0.0";
+  try {
+    return ethersLib.utils.formatEther(value);
+  } catch (error) {
+    console.error("Error formatting ETH value:", error);
+    return "0.0";
+  }
+};
+
+// Parse ETH helper function
+export const parseEther = (value) => {
+  if (!value) return "0";
+  try {
+    return ethersLib.utils.parseEther(value.toString());
+  } catch (error) {
+    console.error("Error parsing ETH value:", error);
+    return "0";
+  }
+};
 
 export const useWeb3 = () => useContext(Web3Context);
 
