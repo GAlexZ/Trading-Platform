@@ -7,7 +7,7 @@ import { resolveIPFS } from "../utils/ipfsHelper";
 import contractAddresses from "../contract-addresses.json";
 import * as ethersLib from "ethers";
 
-// Contract addresses (would come from environment variables in a real app)
+// Contract addresses
 const TRADING_CONTRACT_ADDRESS = contractAddresses.trading;
 const POKEMON_CARD_CONTRACT_ADDRESS = contractAddresses.pokemonCard;
 // Create context

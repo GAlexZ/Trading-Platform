@@ -7,14 +7,7 @@
 
 ## Installation
 
-1. Clone the repository:
-
-```bash
-git clone https://github.com/yourusername/pokemon-trading-platform.git
-cd pokemon-trading-platform
-```
-
-2. Install dependencies:
+1. Install dependencies:
 
 ```bash
 # Install backend dependencies
@@ -25,7 +18,7 @@ cd frontend
 npm install
 ```
 
-3. Compile and deploy contracts:
+2. Compile and deploy contracts:
 
 ```bash
 npx hardhat compile
@@ -33,16 +26,16 @@ npx hardhat node  # Start local Ethereum node
 npx hardhat run scripts/deploy.js --network localhost
 ```
 
-4. Update contract addresses in `frontend/src/contract-addresses.json`
+3. Update contract addresses in `frontend/src/contract-addresses.json`
 
-5. Start the frontend:
+4. Start the frontend:
 
 ```bash
 cd frontend
 npm start
 ```
 
-6. (Optional) Upload png to some ipfs provider
+5. (Optional) Upload png to some ipfs provider
    Consider https://pinata.cloud/
    On the admin webpage use "ipfs://CIDFromTheUploadedImage"
    Scaling of the image is done automatically

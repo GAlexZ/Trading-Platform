@@ -6,7 +6,8 @@
  * @returns {string} - A URL that can be used in an <img> tag
  */
 export const resolveIPFS = (uri) => {
-  if (!uri) return "/api/placeholder/300/400";
+  if (!uri)
+    return "ipfs://bafybeigz5x3655zd4qll7lcdbxoyjyoqj4tizvzjajtfm7f2aau2svdlsa";
 
   // Handle ipfs:// protocol
   if (uri.startsWith("ipfs://")) {
@@ -28,7 +29,7 @@ export const resolveIPFS = (uri) => {
  * @returns {string} - A URL for a placeholder image
  */
 export const createPlaceholder = (text) => {
-  return `/api/placeholder/300/400?text=${encodeURIComponent(
+  return `ipfs://bafybeigz5x3655zd4qll7lcdbxoyjyoqj4tizvzjajtfm7f2aau2svdlsa?text=${encodeURIComponent(
     text || "Pokemon"
   )}`;
 };

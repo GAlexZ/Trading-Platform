@@ -23,7 +23,6 @@ import LoadingSpinner from "../components/LoadingSpinner";
 const TABS = {
   MINT: "mint",
   CONTRACT: "contract",
-  WITHDRAW: "withdraw",
 };
 
 const AdminPage = () => {
@@ -296,7 +295,6 @@ const AdminPage = () => {
       }
 
       // Extract token ID from the transaction receipt if possible
-      // For demo, we'll use a simple ID or parse from the transaction
       const tokenId = result.transaction?.hash
         ? `${result.transaction.hash.substring(0, 6)}`
         : Date.now().toString();
@@ -653,17 +651,6 @@ const AdminPage = () => {
               >
                 <Settings className="h-5 w-5 mr-2" />
                 Contract Management
-              </button>
-              <button
-                onClick={() => setActiveTab(TABS.WITHDRAW)}
-                className={`${
-                  activeTab === TABS.WITHDRAW
-                    ? "border-indigo-500 text-indigo-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                } whitespace-nowrap pb-4 px-1 border-b-2 font-medium text-sm flex items-center`}
-              >
-                <DollarSign className="h-5 w-5 mr-2" />
-                Withdrawals
               </button>
             </nav>
           </div>
@@ -1151,102 +1138,6 @@ const AdminPage = () => {
                   </div>
                 </div>
               )}
-            </div>
-          )}
-
-          {activeTab === TABS.WITHDRAW && (
-            <div>
-              <h2 className="text-lg font-medium text-gray-900 mb-6">
-                Withdraw Platform Fees
-              </h2>
-
-              {loadingContractInfo ? (
-                <div className="flex justify-center items-center py-8">
-                  <LoadingSpinner size="large" color="indigo" />
-                </div>
-              ) : (
-                <div className="bg-white shadow sm:rounded-lg">
-                  <div className="px-4 py-5 sm:p-6">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900">
-                      Available Balance
-                    </h3>
-                    <div className="mt-2 max-w-xl text-sm text-gray-500">
-                      <p>
-                        Withdraw ETH that you've earned as platform fees or from
-                        sales of your NFTs.
-                      </p>
-                    </div>
-                    <div className="mt-5 border-t border-gray-200 pt-5">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-base font-medium text-gray-900">
-                            Your balance
-                          </h4>
-                          <div className="flex items-center mt-1">
-                            <div className="text-2xl font-bold text-indigo-600">
-                              {withdrawableBalance}
-                            </div>
-                            <div className="ml-2 text-sm text-gray-500">
-                              ETH
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={withdrawFunds}
-                          disabled={
-                            isProcessing || parseFloat(withdrawableBalance) <= 0
-                          }
-                          className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white ${
-                            parseFloat(withdrawableBalance) > 0
-                              ? "bg-indigo-600 hover:bg-indigo-700"
-                              : "bg-gray-400 cursor-not-allowed"
-                          } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500`}
-                        >
-                          {isProcessing ? (
-                            <LoadingSpinner size="small" color="white" />
-                          ) : (
-                            <>
-                              <DollarSign className="mr-2 h-4 w-4" />
-                              Withdraw Funds
-                            </>
-                          )}
-                        </button>
-                      </div>
-
-                      {parseFloat(withdrawableBalance) <= 0 && (
-                        <div className="mt-4 p-3 bg-gray-50 rounded-md">
-                          <p className="text-sm text-gray-500">
-                            You don't have any funds available to withdraw at
-                            the moment. Funds will appear here after NFT sales
-                            or when platform fees are collected.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-8 bg-indigo-50 p-4 rounded-md shadow-sm">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <DollarSign className="h-5 w-5 text-indigo-500" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-indigo-800">
-                      About Withdrawals
-                    </h3>
-                    <div className="mt-2 text-sm text-indigo-700">
-                      <p>
-                        Your withdrawable balance includes platform fees (if
-                        you're the fee recipient) and proceeds from your NFT
-                        sales. The trading contract uses a secure withdrawal
-                        pattern to ensure your funds are safe.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </div>
