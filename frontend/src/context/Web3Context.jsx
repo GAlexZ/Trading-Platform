@@ -398,17 +398,16 @@ export const Web3Provider = ({ children }) => {
     }
   };
 
-  const buyNow = async (listingId, price) => {
+  const buyNow = async (listingId) => {
     if (!signer || !tradingContract)
       return { success: false, error: "Wallet not connected" };
 
     try {
-      // Convert price to wei
-      const priceInWei = ethers.utils.parseEther(price.toString());
+      // 1) Fetch the precise current auction price
+      const priceBN = await tradingContract.getCurrentPrice(listingId);
 
-      // Buy the listing
-      const tx = await tradingContract.buyNow(listingId, { value: priceInWei });
-
+      // 2) Execute the buy with exactly that amount
+      const tx = await tradingContract.buyNow(listingId, { value: priceBN });
       await tx.wait();
 
       return { success: true, transaction: tx };
