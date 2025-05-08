@@ -206,7 +206,7 @@ export const ListingsProvider = ({ children }) => {
             power: 100,
             rarity: 3,
             isShiny: false,
-            image: `/api/placeholder/300/400?text=${encodeURIComponent(
+            image: `ipfs://bafybeigz5x3655zd4qll7lcdbxoyjyoqj4tizvzjajtfm7f2aau2svdlsa?text=${encodeURIComponent(
               `Pokemon #${tokenIdStr}`
             )}`,
           };
