@@ -26,7 +26,8 @@ npx hardhat node  # Start local Ethereum node
 npx hardhat run scripts/deploy.js --network localhost
 ```
 
-3. Update contract addresses in `frontend/src/contract-addresses.json`
+3. Use the contract owner's address, which you get from: npx hardhat run scripts/deploy.js --network localhost
+   to access ADMIN_ROLE smart contract functionality
 
 4. Start the frontend:
 
