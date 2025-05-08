@@ -477,7 +477,7 @@ const NFTDetailView = () => {
 
   const saleTypeInfo = getSaleTypeInfo(listing.saleType);
   const currentPrice =
-    listing.saleType === "DutchAuction" ? getCurrentPrice() : listing.price;
+    listing.saleType === "EnglishAuction" ? listing.highestBid : listing.price;
   const isAuctionEnded =
     (listing.saleType === "EnglishAuction" ||
       listing.saleType === "DutchAuction") &&

@@ -109,7 +109,11 @@ const NftCard = ({ listing, onClick }) => {
               {listing.saleType === "EnglishAuction" ? "Current bid" : "Price"}
             </p>
             <p className="text-lg font-bold text-gray-900">
-              {formatPrice(listing.currentPrice)}
+              {formatPrice(
+                listing.saleType === "EnglishAuction"
+                  ? listing.highestBid
+                  : listing.currentPrice
+              )}
             </p>
           </div>
 
