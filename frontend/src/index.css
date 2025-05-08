@@ -39,7 +39,7 @@ code {
   width: 100%;
   overflow: hidden;
   aspect-ratio: 3/4; /* Maintain consistent aspect ratio across all card images */
-  background-color: #f9fafb; /* Light gray background while loding */
+  background-color: #f9fafb; /* Light gray background while loading */
 }
 
 .ipfs-image {
