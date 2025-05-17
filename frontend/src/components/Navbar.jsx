@@ -10,6 +10,8 @@ import {
   DollarSign,
   ExternalLink,
   LogOut,
+  GameController,
+  Sparkles, // New icon for token price
 } from "lucide-react";
 import { useWeb3 } from "../context/Web3Context";
 import WalletDropdown from "./WalletDropdown";
@@ -193,6 +195,25 @@ const Navbar = () => {
 
   return (
     <nav className="bg-white shadow-sm">
+      {/* Token Ticker - NEW */}
+      <div className="bg-indigo-800 text-white py-1 px-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between flex-wrap">
+          <div className="flex items-center">
+            <Sparkles className="h-4 w-4 mr-2 text-yellow-300" />
+            <span className="text-sm font-medium">$POKETOKEN:</span>
+            <span className="ml-2 text-sm font-bold text-green-400">
+              $0.0325
+            </span>
+            <span className="ml-2 bg-green-500 text-xs px-1.5 py-0.5 rounded-full font-medium">
+              +8.2%
+            </span>
+          </div>
+          <div className="text-xs hidden sm:block">
+            CA: 0xeB3a9C56d963b4D9A761388D6e05eD9440C240e3
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
@@ -222,6 +243,18 @@ const Navbar = () => {
                 } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
               >
                 Marketplace
+              </Link>
+              {/* NEW: Play to Earn Link */}
+              <Link
+                to="/play-to-earn"
+                className={`${
+                  location.pathname === "/play-to-earn"
+                    ? "border-indigo-500 text-gray-900"
+                    : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+              >
+                <GameController className="h-4 w-4 mr-1" />
+                Play to Earn
               </Link>
               {/* Collection Link - Only show when connected */}
               {account && (
@@ -356,6 +389,19 @@ const Navbar = () => {
               onClick={() => setMobileMenuOpen(false)}
             >
               Marketplace
+            </Link>
+            {/* NEW: Play to Earn Link in mobile menu */}
+            <Link
+              to="/play-to-earn"
+              className={`${
+                location.pathname === "/play-to-earn"
+                  ? "bg-indigo-50 border-indigo-500 text-indigo-700"
+                  : "border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700"
+              } block pl-3 pr-4 py-2 border-l-4 text-base font-medium flex items-center`}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              <GameController className="h-4 w-4 mr-2" />
+              Play to Earn
             </Link>
             {/* Collection Link in Mobile Menu - Only show when connected */}
             {account && (

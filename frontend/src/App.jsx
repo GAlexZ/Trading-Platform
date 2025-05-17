@@ -14,6 +14,7 @@ import NFTDetailView from "./pages/NFTDetailView";
 import CreateListingPage from "./pages/CreateListingPage";
 import AdminPage from "./pages/AdminPage";
 import MyCollectionPage from "./pages/MyCollectionPage";
+import PlayToEarnPage from "./pages/PlayToEarnPage"; // Import the new Play to Earn page
 import { Web3Provider, useWeb3 } from "./context/Web3Context";
 import { ListingsProvider } from "./context/ListingsContext";
 import "./index.css";
@@ -89,6 +90,8 @@ const AppContent = () => {
           <Route path="/marketplace/:listingId" element={<NFTDetailView />} />
           <Route path="/create-listing" element={<CreateListingPage />} />
           <Route path="/collection" element={<MyCollectionPage />} />
+          <Route path="/play-to-earn" element={<PlayToEarnPage />} />{" "}
+          {/* Add new Play to Earn route */}
           <Route
             path="/admin"
             element={
